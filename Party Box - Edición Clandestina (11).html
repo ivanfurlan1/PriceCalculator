@@ -1,0 +1,2103 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Party Box - Edición Clandestina</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Anton&family=Special+Elite&display=swap" rel="stylesheet">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" />
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Tone.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
+    
+    <style>
+        :root {
+            /* Colors */
+            --color-background: #111111; 
+            --color-paper: #eaddc5; 
+            --color-paper-text: #111111; 
+            --color-primary-yellow: #FFC300; 
+            --color-accent-red: #C70039; 
+            --color-shadow-red: #7a0624; 
+            --color-text-light: #EAEAEA; 
+            --color-success: #28a745;
+            
+            /* Aesthetics */
+            --border-radius-base: 3px; 
+            --border-radius-md: 4px;
+
+            /* Animations & Easings */
+            --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+            --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+            --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+        }
+
+        * { box-sizing: border-box; }
+
+        html, body {
+            height: 100%; width: 100%;
+            overflow: hidden; 
+            position: fixed; inset: 0;
+            background-color: var(--color-background);
+        }
+
+        body {
+            font-family: 'Special Elite', monospace; 
+            color: var(--color-text-light);
+            -webkit-font-smoothing: antialiased;
+            user-select: none;
+            cursor: default;
+            overscroll-behavior-y: none; 
+        }
+
+        body, #game-board, img {
+            -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none; -webkit-user-drag: none;
+        }
+        
+        ::selection { background-color: var(--color-primary-yellow); color: black; }
+
+        /* --- Cinematic Layers --- */
+        .film-grain-overlay {
+            position: fixed; inset: 0; width: 100%; height: 100vh;
+            pointer-events: none; z-index: 999; overflow: hidden; opacity: 0.12;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='2.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+            will-change: opacity;
+        }
+        
+        .vignette-overlay {
+            position: fixed; inset: 0; width: 100%; height: 100%;
+            background: radial-gradient(ellipse at center, rgba(0,0,0,0) 40%, rgba(0,0,0,0.85) 100%);
+            z-index: 998; pointer-events: none;
+        }
+
+        /* CAPA DE TENSIÓN PARA LA BOMBA */
+        #bomb-tension-overlay {
+            position: fixed; inset: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle at center, transparent 10%, rgba(199, 0, 57, 0.95) 100%);
+            z-index: 199; pointer-events: none; opacity: 0;
+            mix-blend-mode: multiply;
+            will-change: opacity;
+        }
+
+        .letterbox {
+            position: fixed; left: 0; width: 100%; height: 0; 
+            background-color: #000; z-index: 1001;
+            transition: height 1.5s var(--ease-in-out);
+        }
+        #top-letterbox { top: 0; }
+        #bottom-letterbox { bottom: 0; }
+        body.cinematic-intro #top-letterbox, body.cinematic-intro #bottom-letterbox { height: 10vh; }
+
+        .main-container { filter: sepia(0.15) saturate(1.1) contrast(1.05); height: 100%; width: 100%; overflow: hidden; position: relative; }
+
+        /* --- Screen Transitions --- */
+        .screen {
+            height: 100%; width: 100%;
+            display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+            position: absolute; top: 0; left: 0;
+            padding: 4.5rem 1rem 1rem 1rem; 
+            opacity: 0; pointer-events: none; visibility: hidden;
+            transform: scale(0.98);
+            filter: blur(2px);
+            transition: opacity 0.4s var(--ease-out-expo), visibility 0.4s, transform 0.4s var(--ease-out-expo), filter 0.4s var(--ease-out-expo);
+            overflow: hidden; 
+            will-change: transform, opacity, filter;
+        }
+        
+        #start-screen, #hub-screen { padding-top: 1rem; } 
+
+        .screen.is-active { 
+            opacity: 1; pointer-events: auto; visibility: visible; 
+            transform: scale(1);
+            filter: blur(0);
+            transition: opacity 0.4s var(--ease-out-expo), visibility 0.4s, transform 0.5s var(--ease-spring), filter 0.4s var(--ease-out-expo);
+        }
+        
+        .screen.is-fading-out { 
+            opacity: 0; pointer-events: none; 
+            transform: scale(1.02);
+            filter: blur(3px);
+            transition: opacity 0.3s var(--ease-out-expo), transform 0.3s var(--ease-out-expo), filter 0.3s var(--ease-out-expo);
+        }
+
+        .screen-content { 
+            height: 100%; width: 100%; 
+            display: flex; flex-direction: column; align-items: center; justify-content: center; 
+            overflow: hidden;
+        }
+
+        /* --- Typography & Neon --- */
+        .neon-title {
+            font-family: 'Anton', sans-serif; font-weight: 400; line-height: 1.1; word-break: break-word;
+            color: var(--color-primary-yellow); text-transform: uppercase; text-align: center;
+            text-shadow: 3px 3px 0px var(--color-accent-red), 6px 6px 0px var(--color-shadow-red), 0 0 20px rgba(255, 195, 0, 0.4);
+            animation: neon-flicker 4s infinite alternate; will-change: opacity, filter; margin-bottom: 1rem;
+            position: relative;
+        }
+
+        #main-title { font-size: clamp(3.5rem, 15vw, 6.5rem); }
+        h2.neon-title { font-size: clamp(2rem, 8vw, 3.5rem); text-shadow: 2px 2px 0px var(--color-accent-red), 4px 4px 0px var(--color-shadow-red), 0 0 15px rgba(255, 195, 0, 0.2); }
+
+        @keyframes neon-flicker {
+            0%, 19%, 21%, 23%, 25%, 54%, 56%, 100% { opacity: 1; filter: brightness(1); }
+            20%, 24%, 55% { opacity: 0.5; filter: brightness(0.5); }
+        }
+
+        /* --- Buttons --- */
+        .btn-cinematic {
+            font-family: 'Anton', sans-serif; font-size: 1.25rem; letter-spacing: 1px;
+            padding: 0.75rem 1.5rem; background-color: var(--color-primary-yellow); color: var(--color-paper-text);
+            border: 3px solid var(--color-paper-text); border-radius: var(--border-radius-base);
+            box-shadow: 0 5px 0px rgba(0,0,0,1), 0 8px 15px rgba(0,0,0,0.4);
+            text-transform: uppercase; cursor: pointer;
+            width: 100%; max-width: 260px; 
+            display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; margin: 0.4rem 0;
+            position: relative; overflow: hidden;
+            transform: translateY(0);
+            transition: transform 0.15s var(--ease-spring), box-shadow 0.15s var(--ease-spring), filter 0.3s, background-color 0.15s ease-out, color 0.15s ease-out;
+            will-change: transform, box-shadow;
+        }
+
+        .btn-dark {
+            background-color: #222;
+            color: var(--color-text-light);
+            border-color: #111;
+        }
+
+        .btn-cinematic:hover:not(:disabled) { 
+            transform: translateY(-2px); 
+            box-shadow: 0 7px 0px rgba(0,0,0,1), 0 12px 20px rgba(0,0,0,0.5); 
+            background-color: var(--color-accent-red);
+            color: white;
+            border-color: #111;
+        }
+        
+        .btn-cinematic:active:not(:disabled) { 
+            transform: translateY(5px); 
+            box-shadow: 0 0px 0px rgba(0,0,0,1), 0 2px 4px rgba(0,0,0,0.3); 
+            background-color: var(--color-accent-red);
+            color: white;
+            transition: transform 0.05s, box-shadow 0.05s, background-color 0s, color 0s;
+        }
+        
+        .btn-cinematic:disabled { filter: grayscale(1); cursor: not-allowed; opacity: 0.6; box-shadow: 0 4px 0px rgba(0,0,0,1); transform: translateY(1px); }
+        .btn-cinematic * { position: relative; z-index: 2; }
+
+        .btn-cinematic i { display: inline-block; transition: transform 0.4s var(--ease-spring); }
+        .btn-cinematic:hover:not(:disabled) i { transform: scale(1.2) rotate(-10deg); }
+        .btn-cinematic:active:not(:disabled) i { transform: scale(0.9) rotate(10deg); transition: transform 0.1s; }
+
+        .btn-danger { background-color: var(--color-accent-red); color: white; }
+        .btn-danger:hover:not(:disabled) { background-color: var(--color-shadow-red); }
+        
+        .btn-success { background-color: var(--color-success); color: white; border-color: #0b4a18; }
+        .btn-success:hover:not(:disabled) { background-color: #1b7a30; }
+
+        .btn-back-global {
+            position: fixed; top: 1.5rem; left: 1.5rem; z-index: 100;
+            font-family: 'Anton', sans-serif; font-size: 1.1rem;
+            padding: 0.4rem 0.8rem; background: rgba(17, 17, 17, 0.9); color: var(--color-primary-yellow);
+            border: 2px solid var(--color-primary-yellow); border-radius: var(--border-radius-base);
+            box-shadow: 0 4px 0px rgba(0,0,0,1); text-transform: uppercase; cursor: pointer;
+            transition: all 0.2s var(--ease-spring), background-color 0.15s ease, color 0.15s ease; backdrop-filter: blur(8px);
+            display: flex; align-items: center; justify-content: center;
+            transform-origin: center;
+        }
+        
+        .btn-back-global i {
+            display: inline-block;
+            transition: transform 0.5s var(--ease-spring);
+        }
+
+        .btn-back-global:hover { 
+            transform: translateY(-2px) rotate(-4deg); 
+            box-shadow: 0 6px 0px rgba(0,0,0,1); 
+            background: var(--color-accent-red); 
+            color: white; 
+            border-color: #111;
+        }
+
+        .btn-back-global:hover i { transform: rotate(-45deg) scale(1.1); }
+
+        .btn-back-global:active { 
+            transform: translateY(4px) rotate(4deg); 
+            box-shadow: 0 0px 0px transparent; 
+            background: var(--color-shadow-red); 
+            color: white;
+            transition: all 0.05s; 
+        }
+
+        .btn-back-global:active i {
+            transform: rotate(-360deg) scale(0.9);
+            transition: transform 0.15s ease-out; 
+        }
+
+        /* --- UI Elements --- */
+        .vintage-paper-box {
+            background-color: var(--color-paper); color: var(--color-paper-text); border: 3px solid #111; border-radius: var(--border-radius-md);
+            box-shadow: 8px 8px 0px rgba(0,0,0,0.9), inset 0 0 40px rgba(0,0,0,0.05); 
+            padding: 2rem 1.5rem; width: 100%; max-width: 400px; position: relative;
+            transform-origin: center top; max-height: 100%; overflow-y: auto; display: flex; flex-direction: column; align-items: center;
+        }
+
+        .vintage-input {
+            width: 100%; background: #fff; color: #111; font-family: 'Special Elite', monospace; font-size: 1.2rem;
+            border: 2px solid #111; border-radius: var(--border-radius-base); padding: 0.75rem; outline: none;
+            box-shadow: inset 0 4px 6px rgba(0,0,0,0.1); transition: border-color 0.3s, box-shadow 0.3s;
+        }
+        .vintage-input:focus { border-color: var(--color-accent-red); box-shadow: inset 0 4px 6px rgba(0,0,0,0.1), 0 0 0 3px rgba(199, 0, 57, 0.2); }
+
+        /* --- Modals --- */
+        .modal-overlay {
+            position: fixed; inset: 0; background-color: rgba(0, 0, 0, 0.5); z-index: 200; 
+            backdrop-filter: blur(0px);
+            opacity: 0; visibility: hidden; 
+            transition: opacity 0.3s var(--ease-out-expo), visibility 0.3s, backdrop-filter 0.3s var(--ease-out-expo);
+            display: flex; justify-content: center; align-items: center; padding: 1rem;
+        }
+        .modal-overlay.is-visible { opacity: 1; visibility: visible; pointer-events: auto; backdrop-filter: blur(8px); background-color: rgba(0, 0, 0, 0.75); }
+        
+        .modal-content {
+            background-color: var(--color-background); border: 4px solid var(--color-primary-yellow);
+            border-radius: var(--border-radius-md); padding: 2rem 1.5rem; max-width: 450px; width: 100%;
+            box-shadow: 0 0 0 6px #111, 10px 10px 0px rgba(0,0,0,1);
+            transform: scale(0.9) translateY(20px); 
+            opacity: 0;
+            transition: transform 0.4s var(--ease-spring), opacity 0.3s var(--ease-out-expo);
+            display: flex; flex-direction: column; align-items: center; text-align: center;
+        }
+        .is-visible .modal-content { transform: scale(1) translateY(0); opacity: 1; }
+        .modal-content h2 { font-family: 'Anton', sans-serif; font-size: clamp(1.8rem, 6vw, 2.8rem); color: var(--color-primary-yellow); text-shadow: 3px 3px 0 var(--color-accent-red); margin-bottom: 1.5rem; text-transform: uppercase; line-height: 1.1; word-break: break-word; }
+
+        /* --- Dossier Animation --- */
+        .dossier-container { position: relative; perspective: 1500px; margin: 1rem auto; width: clamp(260px, 70vw, 360px); aspect-ratio: 4 / 5.5; }
+        .dossier-cover { 
+            position: absolute; inset: 0; background-color: #dcb881; border: 2px solid #4a3013; border-radius: var(--border-radius-base); 
+            transform-origin: left center; transition: transform 1.2s var(--ease-in-out), box-shadow 1.2s; z-index: 10; 
+            display: flex; align-items: center; justify-content: center; 
+            box-shadow: inset -5px 0 20px rgba(0,0,0,0.3), 5px 10px 20px rgba(0,0,0,0.6); 
+            will-change: transform;
+        }
+        .dossier-cover::before { content:''; position:absolute; left:0; top:0; bottom:0; width:15px; background: linear-gradient(to right, rgba(0,0,0,0.4), transparent); border-radius: var(--border-radius-base) 0 0 var(--border-radius-base); }
+        .dossier-cover.open { transform: rotateY(-140deg); box-shadow: inset -5px 0 20px rgba(0,0,0,0.3), 25px 10px 30px rgba(0,0,0,0.2); }
+        .dossier-cover h3 { font-family: 'Anton', sans-serif; font-size: 2.5rem; color: var(--color-accent-red); border: 4px dashed var(--color-accent-red); padding: 0.5rem 1.5rem; transform: rotate(-10deg); box-shadow: inset 0 0 10px rgba(199,0,57,0.1); }
+        
+        .dossier-content { 
+            position: absolute; inset: 5%; width: 90%; height: 90%; opacity: 0; 
+            transition: opacity 0.4s 0.6s, box-shadow 0.4s 0.6s; 
+            background: #222; border: 3px solid #eee; border-radius: var(--border-radius-base); padding: 0.5rem; 
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            box-shadow: 0 0 0 rgba(0,0,0,0); overflow: hidden;
+        }
+        .dossier-cover.open + .dossier-content { opacity: 1; box-shadow: inset 0 0 30px rgba(0,0,0,0.8); }
+
+        .character-image-container { position: relative; width: 100%; height: 100%; overflow: hidden; border-radius: inherit; background: #111; }
+        .character-image-container img { width: 100%; height: 100%; object-fit: cover; filter: sepia(0.25) contrast(1.1) brightness(0.95); transition: transform 4s ease-out; transform: scale(1.15); }
+        .dossier-cover.open + .dossier-content .character-image-container img { transform: scale(1); }
+
+        /* --- Game Board & Cards --- */
+        #game-board { width: 100%; flex-grow: 1; height: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(85px, 1fr)); gap: 0.6rem; padding: 0.5rem 0 2rem 0; perspective: 1200px; overflow-y: auto; overflow-x: hidden; align-content: flex-start;}
+        @media (min-width: 480px) { #game-board { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 0.8rem; } }
+        
+        .card-item { transition: transform 0.2s var(--ease-out-expo), filter 0.2s; cursor: pointer; aspect-ratio: 3/4; will-change: transform; position: relative; }
+        .card-item:hover { transform: scale(1.02); z-index: 2; }
+        
+        .card-inner { 
+            position: relative; width: 100%; height: 100%; 
+            transition: transform 0.5s var(--ease-out-expo); 
+            transform-style: preserve-3d; border-radius: var(--border-radius-md); 
+            box-shadow: 3px 5px 10px rgba(0,0,0,0.6); 
+            transform-origin: center right; 
+        }
+        
+        .is-flipped .card-inner { transform: translateX(-100%) rotateY(-180deg); box-shadow: 2px 2px 5px rgba(0,0,0,0.8); }
+
+        .card-front, .card-back { position: absolute; inset: 0; backface-visibility: hidden; border-radius: var(--border-radius-md); overflow: hidden; border: 2px solid #000; }
+        .is-flipped .card-front img { filter: grayscale(1) brightness(0.25); transition: filter 0.3s 0.2s; }
+        .card-name-overlay { background: linear-gradient(to top, rgba(0,0,0,0.95), transparent); color: white; font-size: 0.9rem; font-family: 'Anton', sans-serif; position: absolute; bottom: 0; width: 100%; padding: 0.5rem 0.25rem 0.25rem; text-align: center; line-height: 1; text-shadow: 1px 1px 2px black; pointer-events: none; letter-spacing: 0.5px;}
+        .card-front.no-image { background-color: var(--color-paper); border-color: #5a4023; display: flex; align-items: center; justify-content: center; padding: 0.5rem; background-image: radial-gradient(circle, transparent 20%, rgba(0,0,0,0.05) 100%); }
+        .card-front.no-image .card-name-overlay { position: static; background: none; color: var(--color-paper-text); font-size: 1.2rem; text-shadow: none; white-space: normal; }
+        
+        .card-back { 
+            background-color: #111; border-color: var(--color-primary-yellow); transform: rotateY(180deg); 
+            display: flex; align-items: center; justify-content: center; 
+            font-family: 'Anton', sans-serif; font-size: 1.5rem; color: var(--color-primary-yellow); 
+            background-image: repeating-linear-gradient(45deg, rgba(255,195,0,0.15) 0, rgba(255,195,0,0.15) 2px, transparent 2px, transparent 8px); 
+        }
+
+        .card-item.is-entering { opacity: 0; animation: card-entry-animation 0.5s var(--ease-out-expo) forwards; }
+        @keyframes card-entry-animation { 
+            from { opacity: 0; transform: translateY(30px) scale(0.9) rotateX(-10deg); } 
+            to { opacity: 1; transform: translateY(0) scale(1) rotateX(0deg); } 
+        }
+        
+        .effect-all-flipped { animation: camera-shake 0.5s cubic-bezier(.36,.07,.19,.97) both; }
+        @keyframes camera-shake { 10%, 90% { transform: translate3d(-1px, 0, 0) rotate(-1deg); } 20%, 80% { transform: translate3d(2px, 0, 0) rotate(1deg); } 30%, 50%, 70% { transform: translate3d(-4px, 0, 0) rotate(-1deg); } 40%, 60% { transform: translate3d(4px, 0, 0) rotate(1deg); } }
+        .card-item.easter-egg-active { transition: transform 0.2s var(--ease-spring) !important; z-index: 50; }
+
+        /* --- Settings Controls --- */
+        .setting-control { display: flex; align-items: center; justify-content: space-between; width: 100%; margin-bottom: 1rem; background: rgba(0,0,0,0.03); padding: 0.75rem; border-radius: var(--border-radius-base); border: 1px dashed rgba(0,0,0,0.3); box-shadow: inset 0 2px 4px rgba(0,0,0,0.05); }
+        .setting-label { font-size: 1.3rem; font-family: 'Anton', sans-serif; text-transform: uppercase; text-shadow: 1px 1px 0 rgba(255,255,255,0.5); }
+        .value-adjuster { display: flex; align-items: center; gap: 0.75rem; }
+        .btn-adjust { 
+            width: 40px; height: 40px; font-family: 'Anton', sans-serif; font-size: 1.5rem; 
+            background: #d6c6a7; border: 2px solid #111; border-radius: var(--border-radius-base); color: #111; 
+            display: flex; align-items: center; justify-content: center; cursor: pointer; 
+            box-shadow: 0 4px 0 rgba(0,0,0,0.9); transition: all 0.15s var(--ease-spring); 
+        }
+        .btn-adjust:hover { 
+            transform: translateY(-2px); 
+            box-shadow: 0 6px 0 rgba(0,0,0,0.9); 
+            background: var(--color-accent-red);
+            color: white;
+            border-color: #111;
+        }
+        .btn-adjust:active { 
+            transform: translateY(4px); 
+            box-shadow: 0 0px 0 transparent; 
+            background: var(--color-accent-red);
+            color: white;
+            transition: all 0.05s;
+        }
+        .setting-value { font-family: 'Anton', sans-serif; font-size: 2.2rem; color: var(--color-accent-red); min-width: 50px; text-align: center; line-height: 1; text-shadow: 1px 1px 0 rgba(255,255,255,0.5); }
+
+        /* --- Taboo Cards --- */
+        .taboo-card { 
+            width: 100%; max-width: 320px; background-color: #fff; border: 3px solid #111; border-radius: var(--border-radius-md); 
+            box-shadow: 8px 12px 0px rgba(0,0,0,0.9), 0 20px 25px rgba(0,0,0,0.5); 
+            padding: 2rem 1.5rem; text-align: center; transform-style: preserve-3d; opacity: 0; min-height: 380px; 
+            display: flex; flex-direction: column; position: relative; overflow: hidden;
+        }
+        .taboo-card::before { content:''; position:absolute; inset:0; background: radial-gradient(circle, transparent 50%, rgba(0,0,0,0.05) 100%); pointer-events: none;}
+        .taboo-card.flip-in { animation: card-drop-in 0.5s var(--ease-out-expo) forwards; }
+        .taboo-card.flip-out { animation: card-throw-out 0.4s var(--ease-out-expo) forwards; }
+        
+        @keyframes card-drop-in { 
+            0% { opacity: 0; transform: translateY(-30px) rotate(-5deg) scale(0.9); } 
+            100% { opacity: 1; transform: translateY(0) rotate(0deg) scale(1); } 
+        }
+        @keyframes card-throw-out { 
+            0% { opacity: 1; transform: translateX(0) rotate(0deg); } 
+            100% { opacity: 0; transform: translateX(80px) rotate(15deg) scale(0.8); filter: blur(2px); } 
+        }
+
+        .taboo-card .main-word { font-family: 'Anton', sans-serif; font-size: clamp(2rem, 8vw, 3.2rem); color: #111; text-transform: uppercase; border-bottom: 5px solid var(--color-accent-red); padding-bottom: 0.5rem; margin-bottom: 1.5rem; line-height: 1.1; word-wrap: break-word; position: relative; z-index: 1;}
+        .taboo-card .forbidden-list { list-style: none; padding: 0; margin: 0; flex-grow: 1; display: flex; flex-direction: column; justify-content: center; gap: 0.5rem; position: relative; z-index: 1;}
+        .taboo-card .forbidden-list li { font-size: 1.4rem; padding: 0.5rem; background: #f4ecd8; border-radius: var(--border-radius-base); border: 2px solid #d6c6a7; color: #222; text-transform: uppercase; font-weight: bold; box-shadow: inset 0 2px 4px rgba(255,255,255,0.8); }
+
+        #tabu-game-controls { width: 100%; max-width: 400px; display: flex; justify-content: space-between; gap: 1rem; margin-top: auto; padding-top: 1rem; }
+        #tabu-game-controls .btn-cinematic { width: 48%; max-width: none; font-size: 1.1rem; padding: 0.75rem 0.5rem; margin: 0; }
+
+        /* --- Overlays & Effects --- */
+        #flash-overlay { position: fixed; inset: 0; background-color: white; z-index: 201; opacity: 0; pointer-events: none; mix-blend-mode: overlay; }
+        #flash-overlay.flash-active { animation: camera-flash 0.5s ease-out forwards; }
+        @keyframes camera-flash { 0% { opacity: 0; } 30% { opacity: 1; } 100% { opacity: 0; } }
+
+        #round-end-stamp-overlay { position: fixed; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center; pointer-events: none; opacity: 0; }
+        #round-end-stamp-overlay.stamp-visible { animation: stamp-animation 0.5s var(--ease-spring) forwards; }
+        @keyframes stamp-animation { 
+            0% { opacity: 0; transform: scale(2) rotate(-20deg); filter: blur(5px); } 
+            100% { opacity: 0.95; transform: scale(1) rotate(-15deg); filter: blur(0); } 
+        }
+        #round-end-stamp-overlay span { font-family: 'Anton', sans-serif; font-size: clamp(3.5rem, 20vw, 8rem); color: var(--color-accent-red); border: 8px solid var(--color-accent-red); border-radius: var(--border-radius-base); padding: 1rem 2rem; text-transform: uppercase; text-align: center; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); box-shadow: 0 10px 30px rgba(0,0,0,0.5), inset 0 0 20px rgba(199,0,57,0.3); text-shadow: 2px 2px 0 #000; }
+
+        .btn-icon-small { width: 48px; height: 48px; background: var(--color-accent-red); color: white; border: 2px solid #111; border-radius: var(--border-radius-base); font-family: 'Anton', sans-serif; font-size: 1.8rem; box-shadow: 0 4px 0 #111; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s var(--ease-spring);}
+        .btn-icon-small:hover { transform: translateY(-2px); box-shadow: 0 6px 0 #111; filter: brightness(1.1);}
+        .btn-icon-small:active { transform: translateY(4px); box-shadow: 0 0px 0 #111; transition: all 0.05s;}
+
+        /* --- Telepatía Dial --- */
+        .vintage-dial-container { position: relative; width: 100%; height: 4rem; margin: 1.5rem 0; }
+        .dial-track { position: absolute; inset: 0; background-color: #111; border: 3px solid #333; border-radius: var(--border-radius-md); box-shadow: inset 0 5px 15px rgba(0,0,0,0.9); overflow: hidden; }
+        
+        .target-zone-refined {
+            position: absolute; height: 100%; width: 28%; top: 0; transform: translateX(-50%); z-index: 2;
+            background: linear-gradient(to right, var(--color-primary-yellow) 0%, var(--color-primary-yellow) 20%, #d96918 20%, #d96918 40%, var(--color-accent-red) 40%, var(--color-accent-red) 60%, #d96918 60%, #d96918 80%, var(--color-primary-yellow) 80%, var(--color-primary-yellow) 100%);
+            opacity: 0; transition: opacity 0.3s var(--ease-out-expo); border-left: 2px solid #fff; border-right: 2px solid #fff;
+            box-shadow: inset 0 0 15px rgba(0,0,0,0.8), 0 0 30px rgba(255, 195, 0, 0.6);
+        }
+
+        .vintage-range-slider { -webkit-appearance: none; width: 100%; height: 100%; background: transparent; position: relative; z-index: 10; margin: 0; outline: none; }
+        .vintage-range-slider::-webkit-slider-thumb { 
+            -webkit-appearance: none; appearance: none; width: 16px; height: 70px; 
+            background: linear-gradient(to right, #ccc, #fff, #ccc); border: 2px solid black; border-radius: var(--border-radius-base); 
+            cursor: grab; box-shadow: 0 0 10px rgba(0,0,0,0.8), 0 0 0 2px rgba(255,255,255,0.2); 
+            transition: transform 0.1s, opacity 0.2s;
+        }
+        .vintage-range-slider:active::-webkit-slider-thumb { cursor: grabbing; transform: scale(1.1); background: #fff;}
+        .vintage-range-slider:disabled::-webkit-slider-thumb { background: #555; cursor: not-allowed; }
+        
+        .vintage-range-slider.hide-thumb::-webkit-slider-thumb { opacity: 0; pointer-events: none; }
+        .vintage-range-slider.hide-thumb::-moz-range-thumb { opacity: 0; pointer-events: none; border: none; background: transparent; }
+
+        /* --- Sector B (Roulette) --- */
+        .vintage-roulette { width: 160px; height: 160px; background-color: #f4ecd8; border: 4px solid #111; border-radius: 50%; display: flex; justify-content: center; align-items: center; box-shadow: inset 4px 4px 10px rgba(0,0,0,0.3), 6px 6px 0 rgba(0,0,0,1); margin: 0 auto 1.5rem auto; overflow: hidden; position: relative; }
+        .vintage-roulette::after { content:''; position:absolute; inset:0; border-radius:50%; box-shadow: inset 0 0 30px rgba(0,0,0,0.3); pointer-events: none;}
+        .letter-display { font-family: 'Anton', sans-serif; font-size: 6rem; color: #111; line-height: 1; text-shadow: 2px 2px 0 rgba(255,255,255,0.8); will-change: transform, filter; }
+        .spinning .letter-display { filter: blur(2px); color: var(--color-accent-red); transform: scale(1.1); }
+
+        /* --- Bomb Pulse Animations --- */
+        .bomb-exploded { animation: bomb-shake-final 0.5s cubic-bezier(.36,.07,.19,.97) both; }
+        @keyframes bomb-shake-final {
+            0%, 100% { transform: translate3d(0, 0, 0) scale(1); filter: brightness(1) drop-shadow(0 0 0 transparent); }
+            10%, 30%, 50%, 70%, 90% { transform: translate3d(-15px, 10px, 0) scale(1.3) rotate(-8deg); filter: brightness(2.5) drop-shadow(0 0 40px var(--color-accent-red)); }
+            20%, 40%, 60%, 80% { transform: translate3d(15px, -10px, 0) scale(1.3) rotate(8deg); filter: brightness(2.5) drop-shadow(0 0 40px var(--color-accent-red)); }
+        }
+        
+        .bomb-pulse-tick { transform: scale(1.15); transition: transform 0.05s ease-out; }
+        .bomb-pulse-idle { transform: scale(1); transition: transform 0.2s ease-in; }
+
+        /* --- Animación Clean para el Briefing --- */
+        .briefing-fade { animation: briefingFadeIn 0.3s var(--ease-out-expo) forwards; }
+        @keyframes briefingFadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+    </style>
+</head>
+<body>
+    <div class="film-grain-overlay"></div>
+    <div class="vignette-overlay"></div>
+    <!-- Capa inyectada para el brillo de tensión de la bomba -->
+    <div id="bomb-tension-overlay"></div>
+    
+    <div id="top-letterbox" class="letterbox"></div>
+    <div id="bottom-letterbox" class="letterbox"></div>
+    <div id="flash-overlay"></div>
+    <div id="round-end-stamp-overlay"><span>¡TIEMPO!</span></div>
+
+    <div class="main-container w-full min-h-screen relative">
+
+        <div id="start-screen" class="screen is-active">
+            <div class="screen-content">
+                <h1 class="neon-title" id="main-title">PARTY BOX</h1>
+                <p class="text-lg md:text-xl tracking-widest uppercase text-[var(--color-primary-yellow)] mb-8 font-bold border-b-2 border-[var(--color-accent-red)] pb-2 text-center" style="text-shadow: 0 2px 4px rgba(0,0,0,0.8);">Sistema Clandestino</p>
+                <button onclick="initAudio(); switchScreen('hub-screen');" class="btn-cinematic"><i class="fas fa-sign-in-alt"></i> Ingresar</button>
+            </div>
+        </div>
+
+        <div id="hub-screen" class="screen">
+            <div class="screen-content w-full max-w-sm">
+                <h2 class="neon-title mb-6">ARCHIVOS</h2>
+                <button onclick="openBriefing('qesq', () => switchScreen('mode-selection-screen'))" class="btn-cinematic w-full">Quién es Quién</button>
+                <button onclick="openBriefing('tabu', () => { tabuInitGame(); switchScreen('tabu-setup-screen'); })" class="btn-cinematic w-full">Tabú</button>
+                <button onclick="openBriefing('reflejos', () => { switchScreen('reflejos-setup-screen'); refUpdateUI(); })" class="btn-cinematic w-full">Reflejos</button>
+                <button onclick="openBriefing('wave', () => switchScreen('wave-setup-screen'))" class="btn-cinematic w-full">Telepatía</button>
+                <button onclick="openBriefing('basta', () => { switchScreen('basta-screen'); bastaUpdateUI(); })" class="btn-cinematic w-full">Sector B</button>
+                <button onclick="openBriefing('bomb', () => bombInit())" class="btn-cinematic w-full">Carga Explosiva</button>
+                <button onclick="switchScreen('start-screen')" class="btn-cinematic btn-danger mt-6 group"><i class="fas fa-power-off inline-block transition-transform duration-500 group-hover:-rotate-45 group-active:-rotate-[360deg]"></i> Desconectar</button>
+            </div>
+        </div>
+
+        <!-- BRIEFING MINIMALISTA Y FUNCIONAL -->
+        <div id="briefing-screen" class="screen !p-0 bg-transparent" style="height: 100dvh;">
+            <button class="btn-back-global group" onclick="switchScreen('hub-screen')">
+                <i class="fas fa-undo inline-block transition-transform duration-500 group-hover:-rotate-45 group-active:-rotate-[360deg]"></i>
+            </button>
+            
+            <div id="briefing-swipe-zone" class="w-full h-full flex flex-col max-w-2xl mx-auto relative pt-[5.5rem] pb-4 px-4 sm:px-8">
+                
+                <div class="flex-shrink-0 flex flex-col items-center w-full mb-2">
+                    <h2 id="briefing-title" class="font-['Anton'] text-4xl sm:text-5xl text-[var(--color-primary-yellow)] m-0 leading-none text-center tracking-wide">TÍTULO</h2>
+                    <div class="h-[3px] w-12 bg-[var(--color-accent-red)] mt-3"></div>
+                </div>
+
+                <div class="flex-grow flex flex-col items-center justify-center w-full overflow-y-auto relative my-2">
+                    <div id="briefing-content-container" class="w-full text-center px-2 py-4">
+                        <h3 id="briefing-subtitle" class="font-['Anton'] text-2xl sm:text-3xl text-white mb-4 uppercase tracking-widest text-shadow-none">Subtítulo</h3>
+                        <p id="briefing-text" class="text-base sm:text-lg text-gray-300 leading-relaxed font-['Special_Elite'] font-bold max-w-md mx-auto m-0">
+                            Contenido del briefing...
+                        </p>
+                    </div>
+                </div>
+
+                <div class="flex-shrink-0 flex flex-col items-center w-full pt-2">
+                    <div class="flex justify-between items-center w-full max-w-[200px] mb-4">
+                        <button id="btn-briefing-prev" onclick="briefingPrev()" class="text-[#555] text-2xl hover:text-[var(--color-primary-yellow)] active:scale-75 transition-all p-2 disabled:opacity-0"><i class="fas fa-chevron-left"></i></button>
+                        <div id="briefing-dots" class="flex gap-3 items-center">
+                        </div>
+                        <button id="btn-briefing-next" onclick="briefingNext()" class="text-[#555] text-2xl hover:text-[var(--color-primary-yellow)] active:scale-75 transition-all p-2 disabled:opacity-0"><i class="fas fa-chevron-right"></i></button>
+                    </div>
+
+                    <button onclick="briefingStart()" class="btn-cinematic btn-danger w-full !max-w-sm py-4 text-xl flex justify-center items-center gap-3">
+                        INICIAR PROTOCOLO <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div id="mode-selection-screen" class="screen">
+            <button class="btn-back-global group" onclick="switchScreen('hub-screen')"><i class="fas fa-undo inline-block transition-transform duration-500 group-hover:-rotate-45 group-active:-rotate-[360deg]"></i></button>
+            <div class="screen-content w-full max-w-sm">
+                <h2 class="neon-title mb-6">BASE DE DATOS</h2>
+                <button onclick="initQESQ('characters')" class="btn-cinematic w-full">Sujetos</button>
+                <button onclick="initQESQ('cities')" class="btn-cinematic w-full">Ubicaciones</button>
+                <button onclick="initQESQ('foods')" class="btn-cinematic w-full">Suministros</button>
+            </div>
+        </div>
+
+        <div id="character-reveal-screen" class="screen">
+            <div class="screen-content">
+                <h2 class="text-xl md:text-2xl text-[var(--color-text-light)] uppercase mb-6 tracking-widest" style="text-shadow: 0 2px 4px #000;">Tu Identidad:</h2>
+                <div class="dossier-container" id="dossier-anim-container">
+                    <div class="dossier-cover" id="dossier-cover"><h3>TOP SECRET</h3></div>
+                    <div class="dossier-content">
+                        <div id="revealed-image-container" class="character-image-container mb-4 shadow-[0_4px_10px_rgba(0,0,0,0.5)]">
+                            <img id="revealed-character-img" src="" alt="">
+                        </div>
+                        <h3 id="revealed-character-name" class="font-['Anton'] text-3xl md:text-4xl text-[var(--color-primary-yellow)] text-center tracking-wide m-0" style="text-shadow: 2px 2px 0 #000;"></h3>
+                    </div>
+                </div>
+                <p class="text-sm text-gray-400 mt-6 animate-pulse bg-black bg-opacity-50 px-4 py-1 rounded-sm">Memoriza los datos. Iniciando en 5s...</p>
+            </div>
+        </div>
+
+        <div id="qesq-game-screen" class="screen">
+            <div class="screen-content !justify-start">
+                <div class="w-full max-w-2xl flex justify-between items-center bg-[#111] bg-opacity-95 backdrop-blur-md border-2 border-[var(--color-primary-yellow)] rounded p-3 mb-4 z-10 shadow-[0_8px_0_rgba(0,0,0,1)] flex-shrink-0 mt-2 mx-auto">
+                    <button onclick="requestExit('hub-screen')" class="p-3 bg-[var(--color-accent-red)] rounded border-2 border-[#fff] shadow-[0_4px_0_#fff] hover:-rotate-3 active:rotate-3 transition-all flex items-center justify-center group"><i class="fas fa-power-off text-white text-lg group-hover:-rotate-45 group-active:-rotate-[360deg] transition-transform duration-500"></i></button>
+                    <div class="flex items-center gap-4">
+                        <div class="text-right">
+                            <p class="text-[0.6rem] sm:text-xs uppercase text-gray-400 m-0 font-bold">Objetivo</p>
+                            <p id="your-character-name" class="font-['Anton'] text-xl sm:text-2xl text-[var(--color-primary-yellow)] m-0 leading-none" style="text-shadow: 1px 1px 0 #000;"></p>
+                        </div>
+                        <div id="your-character" class="w-14 h-14 border-2 border-[var(--color-primary-yellow)] rounded-sm shadow-[0_2px_5px_rgba(0,0,0,0.8)] overflow-hidden cursor-pointer active:scale-95 transition-transform" onclick="showImageModal(yourSecretCharacter)">
+                            <div id="your-image-container" class="character-image-container hidden"><img id="your-character-img" src="" class="!scale-100 object-cover"></div>
+                        </div>
+                    </div>
+                </div>
+                <div id="game-board" class="max-w-2xl mx-auto w-full"></div>
+            </div>
+        </div>
+
+        <div id="tabu-setup-screen" class="screen">
+            <button class="btn-back-global group" onclick="switchScreen('hub-screen')"><i class="fas fa-undo inline-block transition-transform duration-500 group-hover:-rotate-45 group-active:-rotate-[360deg]"></i></button>
+            <div class="screen-content">
+                <div class="vintage-paper-box">
+                    <h2 class="neon-title !text-4xl mb-8 w-full text-center">Misión Tabú</h2>
+                    
+                    <div class="setting-control w-full">
+                        <span class="setting-label">Equipos</span>
+                        <div class="value-adjuster">
+                            <button class="btn-adjust" onclick="adjustSetting('teams', -1, 2, 4)">-</button>
+                            <span id="teams-value" class="setting-value">2</span>
+                            <button class="btn-adjust" onclick="adjustSetting('teams', 1, 2, 4)">+</button>
+                        </div>
+                    </div>
+                    <div class="setting-control w-full mb-8">
+                        <span class="setting-label">Tiempo (s)</span>
+                        <div class="value-adjuster">
+                            <button class="btn-adjust" onclick="adjustSetting('time', -15, 30, 120)">-</button>
+                            <span id="time-value" class="setting-value">60</span>
+                            <button class="btn-adjust" onclick="adjustSetting('time', 15, 30, 120)">+</button>
+                        </div>
+                    </div>
+
+                    <button onclick="showModal('tabu-categories-modal'); tabuPopulateCategories();" class="btn-cinematic btn-dark w-full">Categorías</button>
+                    <button onclick="tabuStartGame()" class="btn-cinematic btn-danger w-full mt-3">Iniciar Op.</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="tabu-round-start-screen" class="screen">
+            <div class="screen-content">
+                <div class="dossier-container" id="tabu-dossier-anim">
+                    <div class="dossier-cover" id="tabu-dossier-cover"><h3>CONFIDENCIAL</h3></div>
+                    <div class="dossier-content bg-[var(--color-paper)] border-[#2c2c2c] shadow-[inset_0_0_40px_rgba(0,0,0,0.2)]">
+                        <p class="font-['Anton'] text-2xl text-[#111] uppercase mb-2">Turno de</p>
+                        <p id="team-turn-name-display" class="font-['Anton'] text-5xl text-[var(--color-accent-red)] text-center line-height-1 m-0 drop-shadow-md"></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="tabu-game-screen" class="screen">
+            <button class="btn-back-global group" onclick="requestExit('hub-screen')"><i class="fas fa-times inline-block transition-transform duration-500 group-hover:rotate-90 group-active:rotate-[360deg]"></i></button>
+            <div class="screen-content w-full max-w-md h-full" style="justify-content: space-between; align-items: center;">
+                
+                <div class="w-full flex justify-between items-center bg-[#111] p-3 rounded border-2 border-[var(--color-primary-yellow)] mb-4 shadow-[0_8px_0_rgba(0,0,0,1)] flex-shrink-0 mt-2">
+                    <div class="text-center text-white flex-1"><p class="text-[0.6rem] sm:text-xs m-0 uppercase text-gray-400 font-bold">Eq. 1</p><p id="team-1-score" class="font-['Anton'] text-3xl m-0 text-[var(--color-primary-yellow)] drop-shadow-md">0</p></div>
+                    <div id="tabu-timer" class="font-['Anton'] text-5xl text-white text-center w-24 drop-shadow-[0_0_10px_rgba(255,255,255,0.3)] transition-colors duration-300">60</div>
+                    <div class="text-center text-white flex-1"><p class="text-[0.6rem] sm:text-xs m-0 uppercase text-gray-400 font-bold">Eq. 2</p><p id="team-2-score" class="font-['Anton'] text-3xl m-0 text-[var(--color-primary-yellow)] drop-shadow-md">0</p></div>
+                </div>
+
+                <div class="w-full flex-grow flex items-center justify-center py-4 overflow-hidden" style="perspective: 1000px;">
+                    <div class="taboo-card max-h-full overflow-y-auto" id="taboo-card">
+                        <h3 id="main-word" class="main-word flex-shrink-0"></h3>
+                        <ul id="forbidden-list" class="forbidden-list"></ul>
+                    </div>
+                </div>
+
+                <div id="tabu-game-controls" class="flex-shrink-0 w-full">
+                    <button onclick="tabuProcessAnswer(false)" class="btn-cinematic btn-danger"><i class="fas fa-times"></i> Tabú</button>
+                    <button onclick="tabuProcessAnswer(true)" class="btn-cinematic btn-success"><i class="fas fa-check"></i> Acierto</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="reflejos-setup-screen" class="screen">
+            <button class="btn-back-global group" onclick="switchScreen('hub-screen')"><i class="fas fa-undo inline-block transition-transform duration-500 group-hover:-rotate-45 group-active:-rotate-[360deg]"></i></button>
+            <div class="screen-content">
+                <div class="vintage-paper-box">
+                    <h2 class="neon-title !text-3xl mb-4 w-full text-center">Prueba de Reflejos</h2>
+                    <p class="text-sm text-center mb-6 leading-tight font-bold bg-[rgba(0,0,0,0.05)] p-2 rounded-sm border border-dashed border-[#111] w-full">Añade a los agentes. El último en tocar su nombre recibe penalización.</p>
+                    
+                    <div class="flex gap-2 mb-6 w-full">
+                        <input type="text" id="ref-input" class="vintage-input flex-grow" placeholder="Alias..." onkeypress="if(event.key==='Enter') refAddPlayer()">
+                        <button onclick="refAddPlayer()" class="btn-icon-small flex-shrink-0"><i class="fas fa-plus"></i></button>
+                    </div>
+                    
+                    <div id="ref-list" class="bg-[#eaddc5] border-2 border-[#111] rounded p-2 min-h-[100px] max-h-[160px] overflow-y-auto mb-6 flex flex-col gap-2 shadow-inner w-full"></div>
+                    
+                    <div class="flex justify-between items-center w-full bg-[rgba(0,0,0,0.05)] p-3 rounded-sm border border-dashed border-[#111] mb-8">
+                        <span class="font-['Anton'] text-xl uppercase">Ciclos</span>
+                        <select id="ref-rounds" class="bg-[#fff] border-2 border-[#111] rounded-sm font-['Anton'] text-xl px-2 py-1 outline-none shadow-sm cursor-pointer">
+                            <option value="2">2</option><option value="3" selected>3</option><option value="5">5</option>
+                        </select>
+                    </div>
+                    
+                    <button id="ref-btn-start" onclick="refStartGame()" class="btn-cinematic btn-danger w-full" disabled>Iniciar Protocolo</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="reflejos-play-screen" class="screen bg-[#111] transition-colors duration-200" onpointerdown="refHandleTouch(event)">
+            <button class="btn-back-global group" onclick="requestExit('hub-screen'); event.stopPropagation();"><i class="fas fa-times inline-block transition-transform duration-500 group-hover:rotate-90 group-active:rotate-[360deg]"></i></button>
+            <div class="screen-content justify-center" style="margin: auto; width: 100%;">
+                
+                <div id="ref-wait-ui" class="flex flex-col items-center w-full">
+                    <h2 class="font-['Anton'] text-[clamp(4.5rem,15vw,9rem)] text-[var(--color-primary-yellow)] mb-2 tension-pulse text-center leading-none">¡ATENTOS!</h2>
+                    <p class="text-[clamp(1rem,4vw,1.5rem)] uppercase tracking-widest text-gray-300 text-center bg-black bg-opacity-40 px-4 py-2 rounded-sm border border-[#333]">Manos fuera de la pantalla</p>
+                </div>
+                
+                <div id="ref-action-ui" class="hidden flex-col items-center w-full justify-center h-full">
+                    <h1 id="ref-target-name" class="font-['Anton'] text-white uppercase text-center w-full drop-shadow-[0_10px_20px_rgba(0,0,0,0.5)]" style="font-size: clamp(4.5rem, 22vw, 12rem); word-wrap: break-word; padding: 0 1rem; line-height: 1;">NOMBRE</h1>
+                </div>
+
+                <div id="ref-result-ui" class="hidden flex-col items-center w-full">
+                    <p id="ref-result-name" class="text-white text-3xl uppercase tracking-widest mb-6 font-bold border-b-4 border-white pb-2 drop-shadow-md">NOMBRE</p>
+                    <div class="bg-[#111] border-4 border-[var(--color-primary-yellow)] rounded flex flex-col items-center p-8 shadow-[0_12px_0_rgba(0,0,0,1)] transform scale-110">
+                        <span class="text-sm text-gray-400 uppercase tracking-widest mb-2 font-bold">Tiempo de Reacción</span>
+                        <span id="ref-time-display" class="font-['Anton'] text-[var(--color-primary-yellow)] text-[clamp(4.5rem,15vw,9rem)] leading-none drop-shadow-[0_0_15px_rgba(255,195,0,0.3)]">0ms</span>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <div id="reflejos-results-screen" class="screen">
+            <div class="screen-content">
+                <div class="vintage-paper-box flex flex-col max-h-full">
+                    <h2 class="neon-title !text-4xl mb-6 text-center flex-shrink-0 w-full">Reporte Final</h2>
+                    <div class="bg-[#eaddc5] border-2 border-[#111] rounded-sm p-2 mb-8 flex-grow overflow-hidden shadow-inner flex flex-col w-full">
+                        <div class="overflow-y-auto w-full h-full">
+                            <table class="w-full text-left" id="ref-ranking-table"></table>
+                        </div>
+                    </div>
+                    <div class="flex flex-col gap-3 flex-shrink-0 w-full items-center">
+                        <button onclick="switchScreen('reflejos-setup-screen')" class="btn-cinematic w-full"><i class="fas fa-redo"></i> Nueva Prueba</button>
+                        <button onclick="switchScreen('hub-screen')" class="btn-cinematic btn-danger w-full"><i class="fas fa-sign-out-alt"></i> Salir</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="wave-setup-screen" class="screen">
+            <button class="btn-back-global group" onclick="switchScreen('hub-screen')"><i class="fas fa-undo inline-block transition-transform duration-500 group-hover:-rotate-45 group-active:-rotate-[360deg]"></i></button>
+            <div class="screen-content">
+                <div class="vintage-paper-box text-center">
+                    <h2 class="neon-title !text-5xl mb-6 w-full text-center">Telepatía</h2>
+                    <p class="text-base font-bold mb-8 bg-[rgba(0,0,0,0.05)] p-4 rounded-sm border border-dashed border-[#111] w-full text-center">El Emisor ve la zona oculta y da UNA palabra como pista. Los Receptores giran el dial.</p>
+                    <button onclick="waveStartRound()" class="btn-cinematic btn-danger w-full">Generar Frecuencia</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="wave-play-screen" class="screen">
+            <button class="btn-back-global group" onclick="requestExit('hub-screen')"><i class="fas fa-times inline-block transition-transform duration-500 group-hover:rotate-90 group-active:rotate-[360deg]"></i></button>
+            <div class="screen-content">
+                <div class="vintage-paper-box w-full max-w-lg">
+                    <div class="flex justify-center mb-6 w-full"><span id="wave-badge" class="bg-black text-[var(--color-primary-yellow)] font-['Anton'] px-6 py-2 rounded text-xl border-2 border-[#333] shadow-[0_4px_0_#000] transition-colors">FASE: EMISOR</span></div>
+                    
+                    <div class="flex justify-between w-full mb-6 font-['Anton'] text-2xl uppercase border-b-2 border-dashed border-[#333] pb-3">
+                        <div id="wave-left" class="w-1/2 text-left drop-shadow-sm">Frío</div>
+                        <div id="wave-right" class="w-1/2 text-right text-[var(--color-accent-red)] drop-shadow-sm">Calor</div>
+                    </div>
+
+                    <div class="vintage-dial-container mb-2 w-full">
+                        <div class="dial-track"><div id="wave-target" class="target-zone-refined" style="left: 50%;"></div></div>
+                        <input type="range" min="0" max="100" value="50" class="vintage-range-slider" id="wave-slider" disabled>
+                    </div>
+                    
+                    <div class="flex justify-between w-full px-2 mb-8 text-xs font-['Anton'] tracking-widest opacity-60"><span>0%</span><span>SINTONÍA</span><span>100%</span></div>
+
+                    <div id="wave-controls" class="flex flex-col gap-4 items-center w-full">
+                        <button id="wave-btn-peek" class="btn-cinematic btn-dark w-full">MANTENER PARA VER</button>
+                        <button id="wave-btn-guess" onclick="waveEnableGuessing()" class="btn-cinematic w-full">PASAR DISPOSITIVO</button>
+                        <button id="wave-btn-reveal" onclick="waveReveal()" class="btn-cinematic btn-danger w-full hidden">CONFIRMAR IMPACTO</button>
+                    </div>
+
+                    <div id="wave-score-container" class="hidden text-center mt-6 border-t-2 border-dashed border-[#333] pt-6 w-full">
+                        <p class="font-bold uppercase text-sm mb-2 opacity-70">Precisión Lograda</p>
+                        <p id="wave-score" class="font-['Anton'] text-7xl text-[var(--color-accent-red)] leading-none m-0 drop-shadow-md">0%</p>
+                        <button onclick="waveStartRound()" class="btn-cinematic mt-6 text-base px-6">Nuevo Código</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="basta-screen" class="screen">
+            <button class="btn-back-global group" onclick="switchScreen('hub-screen')"><i class="fas fa-undo inline-block transition-transform duration-500 group-hover:-rotate-45 group-active:-rotate-[360deg]"></i></button>
+            <div class="screen-content">
+                <div class="vintage-paper-box text-center">
+                    <h2 class="neon-title !text-4xl mb-6">Sector B</h2>
+                    <div class="vintage-roulette"><div id="basta-letter" class="letter-display">?</div></div>
+                    <button id="basta-spin-btn" onclick="bastaSpin()" class="btn-cinematic btn-danger w-full !text-2xl mb-6">EXTRAER</button>
+                    
+                    <div class="bg-[#d6c6a7] border-2 border-[#111] p-3 text-left">
+                        <span class="text-xs font-bold uppercase border-b border-[#111] pb-1 block mb-2">Usadas (<span id="basta-count">0</span>/24)</span>
+                        <div id="basta-history" class="flex flex-wrap gap-1 font-['Anton'] text-lg"></div>
+                    </div>
+                    <button onclick="bastaReset()" class="mt-4 text-[#555] font-bold text-sm underline hover:text-[var(--color-accent-red)] active:text-[var(--color-accent-red)] transition-colors group"><i class="fas fa-sync-alt mr-1 group-hover:rotate-180 group-active:rotate-[360deg] transition-transform duration-500"></i>Resetear Motor</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="bomb-setup-screen" class="screen">
+            <button class="btn-back-global group" onclick="switchScreen('hub-screen')"><i class="fas fa-undo inline-block transition-transform duration-500 group-hover:-rotate-45 group-active:-rotate-[360deg]"></i></button>
+            <div class="screen-content">
+                <div class="vintage-paper-box text-center">
+                    <h2 class="neon-title !text-4xl mb-4">Carga Explosiva</h2>
+                    <p class="text-sm font-bold mb-6">Se mostrará una categoría. Di una palabra que encaje y pasa el dispositivo rápido. El tiempo de detonación es totalmente impredecible (puede durar muchos segundos, o explotar casi al instante). ¡Quien tenga el dispositivo cuando explote, pierde!</p>
+                    <button onclick="bombStartGame()" class="btn-cinematic btn-danger w-full !text-2xl py-4">INICIAR SECUENCIA</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="bomb-play-screen" class="screen">
+            <button class="btn-back-global group" onclick="requestExit('hub-screen')"><i class="fas fa-times inline-block transition-transform duration-500 group-hover:rotate-90 group-active:rotate-[360deg]"></i></button>
+            <!-- Wrapper para poder agitar solo el contenido sin desbordar los modales, y aplicar gravedad luego -->
+            <div id="bomb-content-wrapper" class="screen-content justify-between h-full py-2 w-full will-change-transform">
+                <div class="vintage-paper-box w-full max-w-sm text-center mb-6 relative z-10">
+                    <span class="text-xs font-bold uppercase border-b border-[#111] pb-1 block mb-2 text-gray-700">Objetivo de la ronda</span>
+                    <h3 id="bomb-prompt" class="font-['Anton'] text-2xl text-[#111] uppercase leading-tight m-0"></h3>
+                </div>
+                
+                <div class="flex-grow flex items-center justify-center mb-6 w-full relative z-10 overflow-visible">
+                    <div id="bomb-container" class="flex items-center justify-center w-40 h-40 rounded-full border-4 border-[#111] bg-[#1a1a1a] shadow-[inset_0_0_20px_rgba(0,0,0,0.8),_8px_8px_0_rgba(0,0,0,1)] transition-all duration-75 relative will-change-transform">
+                        <i id="bomb-icon" class="fas fa-bomb text-7xl bomb-pulse-idle text-[var(--color-primary-yellow)] transition-colors duration-150"></i>
+                    </div>
+                </div>
+
+                <div class="w-full max-w-sm flex flex-col gap-2 relative z-10">
+                    <p id="bomb-pass-count" class="text-center font-['Anton'] text-xl text-gray-400 mb-2">Pases: 0</p>
+                    <button id="bomb-btn-pass" onclick="bombPass()" class="btn-cinematic btn-success w-full !text-3xl py-6 active:translate-y-[6px]">¡PASAR!</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="bomb-result-screen" class="screen">
+            <div class="screen-content">
+                <div class="vintage-paper-box text-center">
+                    <h2 class="neon-title !text-5xl mb-2 text-[var(--color-accent-red)] !text-shadow-none">¡BOOM!</h2>
+                    <p class="font-bold text-lg mb-6 uppercase text-[#111]">El agente fue eliminado.</p>
+                    
+                    <div class="bg-[#d6c6a7] border-2 border-[#111] p-4 mb-6 shadow-inner">
+                        <span class="text-sm font-bold uppercase block mb-1 text-gray-700">Pases Exitosos</span>
+                        <span id="bomb-result-pases" class="font-['Anton'] text-7xl text-[#111] leading-none">0</span>
+                    </div>
+                    
+                    <div class="flex flex-col gap-2">
+                        <button onclick="bombStartGame()" class="btn-cinematic w-full"><i class="fas fa-redo"></i> Nueva Secuencia</button>
+                        <button onclick="switchScreen('hub-screen')" class="btn-cinematic btn-danger w-full"><i class="fas fa-sign-out-alt"></i> Salir</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <div id="restart-confirm-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h2 class="text-[var(--color-accent-red)] !text-shadow-none mb-3">¿ABORTAR MISIÓN?</h2>
+            <p class="mb-8 font-bold text-lg opacity-80">Perderás el progreso de la partida actual.</p>
+            <div class="flex gap-4 w-full">
+                <button onclick="hideModal('restart-confirm-modal')" class="btn-cinematic flex-1">Seguir</button>
+                <button id="confirm-restart-button" class="btn-cinematic btn-danger flex-1">Abortar</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="ref-penalty-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h2 class="text-[var(--color-accent-red)] mb-3 !text-shadow-none">¡FALSO CONTACTO!</h2>
+            <p class="mb-6 font-bold text-lg opacity-80">¿Quién tocó la pantalla antes de tiempo?</p>
+            <div id="ref-penalty-list" class="flex flex-col gap-3 w-full mb-6 max-h-[250px] overflow-y-auto"></div>
+            <button onclick="refCancelPenalty()" class="btn-cinematic btn-dark w-full">Nadie / Error</button>
+        </div>
+    </div>
+
+    <div id="tabu-categories-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h2>Categorías</h2>
+            <div id="tabu-categories-list" class="grid grid-cols-2 gap-3 w-full mb-8 max-h-[40vh] overflow-y-auto pr-2"></div>
+            <button onclick="hideModal('tabu-categories-modal')" class="btn-cinematic">Aceptar</button>
+        </div>
+    </div>
+
+    <div id="tabu-end-round-modal" class="modal-overlay">
+         <div class="modal-content">
+             <h2 class="mb-3">Fin del Ciclo</h2>
+             <p id="tabu-round-summary" class="text-xl mb-6 font-bold text-[var(--color-text-light)] opacity-90"></p>
+             <ul id="tabu-results-list" class="w-full mb-8 text-left p-0 m-0 border-t border-b border-gray-600 py-4 text-lg"></ul>
+             <div class="flex flex-col gap-3 w-full">
+                <button onclick="tabuNextRound()" class="btn-cinematic w-full">Siguiente Turno</button>
+                <button onclick="tabuExitToHub()" class="btn-cinematic btn-danger w-full"><i class="fas fa-sign-out-alt"></i> Salir a Base</button>
+             </div>
+        </div>
+    </div>
+
+    <div id="enlarged-character-modal" class="modal-overlay">
+        <div class="modal-content bg-[#111] p-3 border-4 border-[var(--color-primary-yellow)] shadow-[15px_15px_0_rgba(0,0,0,1)]" style="max-width: fit-content; max-height: 90dvh; cursor: grab; user-select: none;">
+            <div class="w-[85vw] sm:w-[60vw] max-w-[450px] aspect-[3/4] relative bg-black pointer-events-none rounded-sm overflow-hidden border border-[#333]">
+                <img id="enlarged-character-img" src="" class="w-full h-full object-contain filter-none pointer-events-none !scale-100" alt="">
+            </div>
+            <p id="enlarged-character-name" class="font-['Anton'] text-4xl text-[var(--color-primary-yellow)] mt-4 mb-2 uppercase text-shadow-none pointer-events-none tracking-wide"></p>
+        </div>
+    </div>
+
+    <canvas id="confetti-canvas" class="fixed top-0 left-0 w-full h-full pointer-events-none z-[9999]"></canvas>
+
+    <script>
+        
+        window.addEventListener('load', () => {
+            setTimeout(() => document.body.classList.add('cinematic-intro'), 150);
+        });
+
+        let isTransitioning = false;
+
+        window.switchScreen = function(toScreenId) {
+            if(isTransitioning) return;
+            const toScreen = document.getElementById(toScreenId);
+            const fromScreen = document.querySelector('.screen.is-active');
+            if(fromScreen === toScreen) return;
+            
+            isTransitioning = true;
+            playSound('uiClick', 'F4');
+
+            if (toScreenId === 'start-screen') {
+                document.body.classList.add('cinematic-intro');
+            } else {
+                document.body.classList.remove('cinematic-intro');
+            }
+
+            if(fromScreen) {
+                setTimeout(() => {
+                    fromScreen.classList.add('is-fading-out'); 
+                    fromScreen.classList.remove('is-active');
+                    setTimeout(() => {
+                        fromScreen.classList.remove('is-fading-out');
+                        toScreen.classList.add('is-active');
+                        isTransitioning = false;
+                    }, 400); 
+                }, 150); 
+            } else {
+                toScreen.classList.add('is-active');
+                isTransitioning = false;
+            }
+        };
+
+        window.showModal = function(id) { 
+            document.getElementById(id).classList.add('is-visible'); 
+            playSound('uiClick', 'D5'); 
+        };
+        
+        window.hideModal = function(id) { 
+            setTimeout(() => {
+                document.getElementById(id).classList.remove('is-visible'); 
+            }, 100);
+        };
+
+        window.confirmExitTarget = '';
+        window.requestExit = function(target) {
+            window.confirmExitTarget = target;
+            showModal('restart-confirm-modal');
+        };
+        document.getElementById('confirm-restart-button').addEventListener('click', () => {
+            hideModal('restart-confirm-modal');
+            
+            clearTimeout(refState.timer);
+            clearInterval(tabuState.timer);
+            clearTimeout(bombState.tickTimer);
+            clearTimeout(bombState.timer);
+            cancelAnimationFrame(bombState.visualLoop);
+            if(bombState.physicsLoop) cancelAnimationFrame(bombState.physicsLoop);
+            bombState.physicsActive = false;
+            
+            setTimeout(() => { if(confirmExitTarget) switchScreen(confirmExitTarget); }, 300);
+        });
+
+        document.querySelectorAll('.modal-overlay').forEach(modal => {
+            modal.addEventListener('mousedown', (e) => {
+                if(e.target === modal && !['restart-confirm-modal', 'tabu-end-round-modal', 'ref-penalty-modal'].includes(modal.id)) {
+                    if (modal.id === 'enlarged-character-modal' && hasDragged) return;
+                    hideModal(modal.id);
+                }
+            });
+        });
+
+        let audioInitialized = false; let sounds;
+        async function initAudio() {
+            if (audioInitialized) return; 
+            await Tone.start(); 
+            
+            const reverb = new Tone.Reverb({ decay: 1.8, wet: 0.25 }).toDestination();
+            const mainVolume = new Tone.Volume(-8).connect(reverb);
+            
+            sounds = {
+                successStinger: new Tone.PolySynth(Tone.Synth, { volume: -8, envelope: { attack: 0.05, decay: 0.5, sustain: 0.1, release: 1 } }).connect(mainVolume),
+                mechanicalSpin: new Tone.MetalSynth({ frequency: 250, envelope: { attack: 0.001, decay: 0.1, release: 0.01 }, harmonicity: 5.1, modulationIndex: 32, resonance: 4000 }).connect(mainVolume),
+                ding: new Tone.Synth({ oscillator: { type: 'triangle' }, volume: -5, envelope: { attack: 0.01, decay: 0.5 } }).connect(mainVolume),
+                tick: new Tone.MembraneSynth({ pitchDecay: 0.02, octaves: 4, volume: -5 }).connect(mainVolume),
+                explosion: new Tone.NoiseSynth({ noise: { type: 'brown' }, volume: 0, envelope: { attack: 0.01, decay: 1.5, sustain: 0.1, release: 0.5 } }).connect(mainVolume)
+            };
+            audioInitialized = true;
+        }
+
+        function playSound(key, note = null) {
+            if (!audioInitialized || !sounds[key]) return;
+            if (sounds[key].triggerAttackRelease && note) sounds[key].triggerAttackRelease(note, '8n');
+            else if (sounds[key].triggerAttack) sounds[key].triggerAttack();
+        }
+        function vibrate(pattern) { if (navigator.vibrate) try { navigator.vibrate(pattern); } catch(e){} }
+
+        // --- SISTEMA DE BRIEFING ---
+        const briefingData = {
+            qesq: {
+                title: "QUIÉN ES QUIÉN",
+                pages: [
+                    { subtitle: "Objetivo Táctico", text: "El sistema ha asignado identidades secretas. Tu objetivo es deducir la identidad del equipo enemigo antes de que ellos descubran la tuya, formulando preguntas precisas." },
+                    { subtitle: "Mecánica de Descarte", text: "Alternen turnos haciendo una pregunta de <span class='text-[var(--color-primary-yellow)]'>SÍ</span> o <span class='text-[var(--color-accent-red)]'>NO</span>. Según la respuesta del rival, toca los rostros en tu tablero táctil para ir eliminando sospechosos." },
+                    { subtitle: "Controles de Interfaz", text: "Si olvidas tu propia identidad, presiona tu ícono en la esquina superior para recordarlo en secreto. Mantén presionado cualquier expediente en el tablero para ampliar la fotografía si necesitas ver detalles." }
+                ]
+            },
+            tabu: {
+                title: "MISIÓN TABÚ",
+                pages: [
+                    { subtitle: "Transmisión Segura", text: "Un Emisor debe lograr que su equipo descifre la palabra principal en pantalla, dándoles pistas verbales antes de que el temporizador colapse." },
+                    { subtitle: "Restricciones Severas", text: "Bajo ninguna circunstancia puedes mencionar las palabras listadas abajo. Están prohibidas las traducciones, la mímica y el uso de palabras derivadas (ej. si la palabra es 'pesca', no puedes decir 'pescador')." },
+                    { subtitle: "Resolución de Ronda", text: "Si el emisor comete una infracción, el rival debe presionar <span class='text-[var(--color-accent-red)]'>TABÚ</span> para anular el punto. Usa el botón verde para registrar cada acierto. El turno rota automáticamente." }
+                ]
+            },
+            reflejos: {
+                title: "REFLEJOS",
+                pages: [
+                    { subtitle: "Medición Neuronal", text: "Esta prueba evalúa tu tiempo de reacción pura. Registra a todos los agentes participantes antes de iniciar la secuencia." },
+                    { subtitle: "Alerta Visual", text: "Manos fuera de la pantalla. El sistema entrará en reposo. Cuando detecte actividad, la pantalla destellará en rojo y mostrará un nombre. Solo ese agente debe tocar la pantalla lo más rápido posible." },
+                    { subtitle: "Falso Contacto", text: "La precipitación se castiga. Si tocas la pantalla antes de tiempo, o si intervienes cuando aparece el nombre de otro agente, sufrirás una penalización severa de 500ms en tu promedio." }
+                ]
+            },
+            wave: {
+                title: "TELEPATÍA",
+                pages: [
+                    { subtitle: "Sincronización", text: "El objetivo del escuadrón es localizar un rango de frecuencia oculto, guiados únicamente por la conexión psicológica con el agente Emisor." },
+                    { subtitle: "Rol del Emisor", text: "Mantén presionado el botón para revelar dónde se esconde el espectro de color. Analízalo, di <span class='text-[var(--color-primary-yellow)]'>UNA SOLA PALABRA</span> en voz alta como pista, y entrega el dispositivo." },
+                    { subtitle: "Rol de Receptores", text: "Basados en esa única palabra, giren el dial hasta la posición que crean correcta. Confirmen el impacto para evaluar su porcentaje de precisión telepática." }
+                ]
+            },
+            basta: {
+                title: "SECTOR B",
+                pages: [
+                    { subtitle: "Motor de Extracción", text: "Módulo analítico diseñado para proveer letras aleatorias sin repetición, ideal para acompañar operaciones de improvisación verbal." },
+                    { subtitle: "Funcionamiento", text: "Presiona 'EXTRAER'. El tambor mecánico seleccionará una letra válida del alfabeto. El sistema guarda un registro en la base de datos inferior para garantizar que no haya caracteres duplicados durante la misión." }
+                ]
+            },
+            bomb: {
+                title: "CARGA EXPLOSIVA",
+                pages: [
+                    { subtitle: "Situación Crítica", text: "Tienes una carga inestable. El temporizador es totalmente impredecible: puede ser una mecha larga y agónica, o detonar en cuestión de escasos segundos. Quien la sostenga al detonar, queda eliminado." },
+                    { subtitle: "Protocolo de Desarme", text: "Lee la regla en pantalla (ej. 'Colores'). Di una palabra válida en voz alta y presiona el botón verde de forma inmediata para pasar el dispositivo al siguiente agente." },
+                    { subtitle: "Aceleración", text: "Presta atención al sonido y a los latidos visuales de la bomba. Su frecuencia y el tono aumentarán drásticamente conforme se acerque el colapso inminente. ¡No te congeles!" }
+                ]
+            }
+        };
+
+        let currentBriefingGame = '';
+        let currentBriefingPage = 0;
+        let briefingCallback = null;
+        let touchStartX = 0;
+        let touchEndX = 0;
+
+        window.openBriefing = function(gameId, callback) {
+            initAudio(); 
+            currentBriefingGame = gameId;
+            currentBriefingPage = 0;
+            briefingCallback = callback;
+            
+            renderBriefingPage(false);
+            switchScreen('briefing-screen');
+        };
+
+        function renderBriefingPage(animate = true) {
+            const data = briefingData[currentBriefingGame];
+            const pageData = data.pages[currentBriefingPage];
+            const contentContainer = document.getElementById('briefing-content-container');
+            
+            if (animate) {
+                contentContainer.classList.remove('briefing-fade');
+                void contentContainer.offsetWidth; 
+                contentContainer.classList.add('briefing-fade');
+            }
+            
+            document.getElementById('briefing-title').textContent = data.title;
+            document.getElementById('briefing-subtitle').innerHTML = pageData.subtitle;
+            document.getElementById('briefing-text').innerHTML = pageData.text; 
+            
+            const dotsContainer = document.getElementById('briefing-dots');
+            dotsContainer.innerHTML = '';
+            for(let i = 0; i < data.pages.length; i++) {
+                const dot = document.createElement('div');
+                const baseClasses = "rounded-full transition-all duration-300 ";
+                const activeClasses = "w-2.5 h-2.5 bg-[var(--color-primary-yellow)] shadow-[0_0_8px_var(--color-primary-yellow)]";
+                const inactiveClasses = "w-1.5 h-1.5 bg-[#444]";
+                dot.className = baseClasses + (i === currentBriefingPage ? activeClasses : inactiveClasses);
+                dotsContainer.appendChild(dot);
+            }
+            
+            document.getElementById('btn-briefing-prev').disabled = currentBriefingPage === 0;
+            document.getElementById('btn-briefing-next').disabled = currentBriefingPage === data.pages.length - 1;
+        }
+
+        window.briefingNext = function() {
+            if(currentBriefingPage < briefingData[currentBriefingGame].pages.length - 1) {
+                currentBriefingPage++;
+                playSound('uiClick', 'D4');
+                vibrate(20);
+                renderBriefingPage(true);
+            }
+        };
+        
+        window.briefingPrev = function() {
+            if(currentBriefingPage > 0) {
+                currentBriefingPage--;
+                playSound('uiClick', 'C4');
+                vibrate(20);
+                renderBriefingPage(true);
+            }
+        };
+
+        window.briefingStart = function() {
+            playSound('successStinger', 'E5');
+            vibrate([30, 50, 30]);
+            if(typeof briefingCallback === 'function') {
+                briefingCallback();
+            }
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const briefingZone = document.getElementById('briefing-swipe-zone');
+            if(briefingZone) {
+                briefingZone.addEventListener('touchstart', e => {
+                    touchStartX = e.changedTouches[0].screenX;
+                }, {passive: true});
+
+                briefingZone.addEventListener('touchend', e => {
+                    touchEndX = e.changedTouches[0].screenX;
+                    handleBriefingSwipe();
+                }, {passive: true});
+            }
+        });
+
+        function handleBriefingSwipe() {
+            const swipeThreshold = 40; 
+            if (touchEndX < touchStartX - swipeThreshold) {
+                briefingNext(); 
+            }
+            if (touchEndX > touchStartX + swipeThreshold) {
+                briefingPrev(); 
+            }
+        }
+
+        // --- BASE DE DATOS MASIVA (NATURAL, GENERAL Y LOCAL) ---
+
+        const qesqData = {
+            characters: [ {name:"Renata",imgUrl:"https://i.imgur.com/f8gRf26.png"}, {name:"Hugo",imgUrl:"https://i.imgur.com/o61ttUd.png"}, {name:"Florencio",imgUrl:"https://i.imgur.com/kToYUyO.png"}, {name:"Mirtha",imgUrl:"https://i.imgur.com/Yx9HpwM.png"}, {name:"Bautista",imgUrl:"https://i.imgur.com/rhlMOpw.png"}, {name:"Valentina",imgUrl:"https://i.imgur.com/Ery2KqM.png"}, {name:"Tiago",imgUrl:"https://i.imgur.com/B93Z0Wx.png"}, {name:"Rosina",imgUrl:"https://i.imgur.com/Kcmi5SA.png"}, {name:"Claudio",imgUrl:"https://i.imgur.com/xN8yCVY.png"}, {name:"Julia",imgUrl:"https://i.imgur.com/nu7Q0rE.png"}, {name:"Fernanda",imgUrl:"https://i.imgur.com/sx46oPW.png"}, {name:"Francisco",imgUrl:"https://i.imgur.com/8v7nbch.png"}, {name:"Alex",imgUrl:"https://i.imgur.com/cPHEruJ.png"}, {name:"Micaela",imgUrl:"https://i.imgur.com/pGtnB0X.png"}, {name:"Pedro",imgUrl:"https://i.imgur.com/hqJ9KIF.png"}, {name:"Martín",imgUrl:"https://i.imgur.com/2jsnfpG.png"}, {name:"Rosa",imgUrl:"https://i.imgur.com/KyHmOrb.png"}, {name:"Raul",imgUrl:"https://i.imgur.com/kLbw0sC.png"}, {name:"Sofía",imgUrl:"https://i.imgur.com/hpEd1N8.png"}, {name:"Macarena",imgUrl:"https://i.imgur.com/AztpmjA.png"}, {name:"Fabián",imgUrl:"https://i.imgur.com/HhFyDrw.png"}, {name:"Catalina",imgUrl:"https://i.imgur.com/5pYKrOr.png"}, {name:"Juan",imgUrl:"https://i.imgur.com/7Ila1Gq.png"}, {name:"Sol",imgUrl:"https://i.imgur.com/2XQJQ8k.jpeg"} ],
+            cities: [ {name:"Buenos Aires"},{name:"Londres"},{name:"Tokio"},{name:"Nueva York"},{name:"París"},{name:"Roma"},{name:"Sídney"},{name:"Madrid"},{name:"Pekín"},{name:"Río de Janeiro"},{name:"Moscú"},{name:"Berlín"}, {name:"Amsterdam"},{name:"Barcelona"},{name:"Seúl"},{name:"Estambul"},{name:"Lima"},{name:"Bogotá"},{name:"México DF"},{name:"Atenas"},{name:"Dubai"},{name:"Toronto"},{name:"El Cairo"},{name:"Praga"} ],
+            foods: [ {name:"Pizza"},{name:"Sushi"},{name:"Asado"},{name:"Tacos"},{name:"Paella"},{name:"Ramen"},{name:"Hamburguesa"},{name:"Lasagna"},{name:"Curry"},{name:"Empanadas"}, {name:"Milanesa"},{name:"Ñoquis"},{name:"Ceviche"},{name:"Arepas"},{name:"Shawarma"},{name:"Falafel"},{name:"Tarta"},{name:"Pancho"},{name:"Choripán"},{name:"Ensalada"},{name:"Sopa"},{name:"Omelette"},{name:"Ravioles"},{name:"Burrito"} ]
+        };
+
+        let yourSecretCharacter = null; let currentMode = null; let shuffledData = [];
+        let isEggActive = false; let lastCardClicked = null; let cardClickCount = 0; let lastClickTimestamp = 0; 
+
+        window.initQESQ = function(mode) {
+            currentMode = mode; let data = [...qesqData[mode]];
+            data.sort(() => Math.random() - 0.5); shuffledData = data;
+            yourSecretCharacter = data[Math.floor(Math.random() * data.length)];
+            
+            switchScreen('character-reveal-screen');
+            const hasImg = !!yourSecretCharacter.imgUrl;
+            document.getElementById('revealed-image-container').classList.toggle('hidden', !hasImg);
+            if(hasImg) document.getElementById('revealed-character-img').src = yourSecretCharacter.imgUrl;
+            document.getElementById('revealed-character-name').textContent = yourSecretCharacter.name;
+            
+            setTimeout(() => { document.getElementById('dossier-cover').classList.add('open'); playSound('cardFlip'); }, 800);
+            setTimeout(() => {
+                document.getElementById('dossier-cover').classList.remove('open');
+                buildQesqBoard();
+                switchScreen('qesq-game-screen');
+            }, 5500);
+        };
+
+        function buildQesqBoard() {
+            const hasImg = !!shuffledData[0].imgUrl;
+            document.getElementById('your-image-container').classList.toggle('hidden', !hasImg);
+            if(hasImg) document.getElementById('your-character-img').src = yourSecretCharacter.imgUrl;
+            document.getElementById('your-character-name').textContent = yourSecretCharacter.name;
+
+            const board = document.getElementById('game-board'); board.innerHTML = '';
+            shuffledData.forEach((item, i) => {
+                const front = hasImg ? `<div class="character-image-container"><img src="${item.imgUrl}" draggable="false" class="!scale-100"></div><div class="card-name-overlay">${item.name}</div>` : `<div class="card-front no-image"><div class="card-name-overlay">${item.name}</div></div>`;
+                const frontClass = hasImg ? 'card-front' : 'card-front no-image';
+                board.innerHTML += `<div class="card-item group" data-index="${i}" onclick="flipCard(this)"><div class="card-inner"><div class="${frontClass}">${front}</div><div class="card-back"></div></div></div>`;
+            });
+
+            const cards = board.querySelectorAll('.card-item');
+            requestAnimationFrame(() => {
+                const boardRect = board.getBoundingClientRect(); const maxDist = Math.sqrt((boardRect.width/2)**2 + (boardRect.height/2)**2);
+                cards.forEach(card => {
+                    const cardRect = card.getBoundingClientRect(); const dist = Math.sqrt((cardRect.left - boardRect.left + cardRect.width/2 - boardRect.width/2)**2 + (cardRect.top - boardRect.top + cardRect.height/2 - boardRect.height/2)**2);
+                    card.style.animationDelay = `${(dist / maxDist) * 500}ms`; card.classList.add('is-entering');
+                });
+            });
+        }
+
+        window.flipCard = function(el) {
+            if (isEggActive) return;
+            const now = Date.now();
+            if (lastCardClicked !== el || (now - lastClickTimestamp) > 400) { lastCardClicked = el; cardClickCount = 1; } else { cardClickCount++; }
+            lastClickTimestamp = now;
+
+            if (cardClickCount >= 7) { 
+                triggerEasterEggEffect(); cardClickCount = 0; 
+            } else {
+                el.classList.toggle('is-flipped'); playSound('cardFlip'); vibrate(20);
+                const total = document.querySelectorAll('.card-item').length;
+                const flipped = document.querySelectorAll('.card-item.is-flipped').length;
+                if(flipped === total - 1) { 
+                    playSound('successStinger', ['C5','E5','G5']); fireConfetti(); 
+                    document.querySelector('.main-container').classList.add('effect-all-flipped');
+                    setTimeout(()=> document.querySelector('.main-container').classList.remove('effect-all-flipped'), 500);
+                }
+            }
+        };
+
+        function triggerEasterEggEffect() {
+            isEggActive = true;
+            const cards = Array.from(document.getElementById('game-board').querySelectorAll('.card-item'));
+            const originalStates = cards.map(card => ({ element: card, isFlipped: card.classList.contains('is-flipped') }));
+            const goCrazy = () => { playSound('cardFlip'); cards.forEach(card => { card.classList.add('easter-egg-active'); card.style.transform = `translate(${(Math.random() - 0.5) * 60}px, ${(Math.random() - 0.5) * 60}px) rotate(${(Math.random() - 0.5) * 40}deg) scale(1.1)`; if (Math.random() > 0.6) card.classList.toggle('is-flipped'); }); };
+            const crazyInterval = setInterval(goCrazy, 150);
+            setTimeout(() => { clearInterval(crazyInterval); originalStates.forEach(state => { state.element.style.transform = ''; state.element.classList.remove('easter-egg-active'); if (state.isFlipped) state.element.classList.add('is-flipped'); else state.element.classList.remove('is-flipped'); }); isEggActive = false; }, 2500);
+        }
+
+        window.showImageModal = function(item) {
+            if(!item || !item.imgUrl) return;
+            document.getElementById('enlarged-character-img').src = item.imgUrl;
+            document.getElementById('enlarged-character-name').textContent = item.name;
+            const enlargedContent = document.querySelector('#enlarged-character-modal .modal-content');
+            
+            enlargedContent.style.transition = '';
+            enlargedContent.style.transform = '';
+            enlargedContent.style.opacity = '';
+            
+            showModal('enlarged-character-modal');
+        };
+
+        let isDragging = false, hasDragged = false, startX = 0, startY = 0;
+        const enlargedContent = document.querySelector('#enlarged-character-modal .modal-content');
+
+        const dragStart = (e) => {
+            if (e.target.tagName === 'P') return;
+            isDragging = true; hasDragged = false;
+            startX = e.pageX || e.touches[0].pageX; startY = e.pageY || e.touches[0].pageY;
+            enlargedContent.style.transition = 'none'; enlargedContent.style.cursor = 'grabbing';
+        };
+        const dragMove = (e) => {
+            if (!isDragging) return;
+            const deltaX = (e.pageX || e.touches[0].pageX) - startX; const deltaY = (e.pageY || e.touches[0].pageY) - startY;
+            if (!hasDragged && (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5)) hasDragged = true;
+            if (hasDragged) { e.preventDefault(); enlargedContent.style.transform = `translate(${deltaX}px, ${deltaY}px) rotate(${deltaX * 0.03}deg) scale(1)`; }
+        };
+        const dragEnd = (e) => {
+            if (!isDragging) return;
+            isDragging = false; enlargedContent.style.cursor = 'grab';
+            if (hasDragged) {
+                const deltaX = (e.pageX || e.changedTouches[0].pageX) - startX; const deltaY = (e.pageY || e.changedTouches[0].pageY) - startY;
+                enlargedContent.style.transition = 'transform 0.3s var(--ease-out-expo), opacity 0.2s ease-out';
+                if (Math.abs(deltaX) > 80 || Math.abs(deltaY) > 80) { 
+                    enlargedContent.style.opacity = '0';
+                    let endX = deltaX > 0 ? window.innerWidth : -window.innerWidth; let endY = deltaY > 0 ? window.innerHeight : -window.innerHeight;
+                    enlargedContent.style.transform = `translate(${endX}px, ${endY}px) rotate(${deltaX * 0.1}deg)`;
+                    setTimeout(() => { 
+                        hideModal('enlarged-character-modal'); 
+                        enlargedContent.style.transform = ''; 
+                        enlargedContent.style.opacity = ''; 
+                    }, 300);
+                } else { enlargedContent.style.transform = ''; }
+            }
+        };
+
+        enlargedContent.addEventListener('mousedown', dragStart); enlargedContent.addEventListener('touchstart', dragStart, { passive: false });
+        window.addEventListener('mousemove', dragMove); window.addEventListener('touchmove', dragMove, { passive: false });
+        window.addEventListener('mouseup', dragEnd); window.addEventListener('touchend', dragEnd);
+
+        let pressTimer;
+        const gameBoard = document.getElementById('game-board');
+        gameBoard.addEventListener('touchstart', (e) => {
+            const card = e.target.closest('.card-item'); if(!card) return;
+            pressTimer = window.setTimeout(() => { showImageModal(shuffledData[card.dataset.index]); vibrate(40); }, 400); 
+        }, {passive: true});
+        gameBoard.addEventListener('touchend', () => clearTimeout(pressTimer));
+        gameBoard.addEventListener('touchmove', () => clearTimeout(pressTimer));
+        gameBoard.addEventListener('contextmenu', (e) => {
+            e.preventDefault(); const card = e.target.closest('.card-item');
+            if(card) showImageModal(shuffledData[card.dataset.index]);
+        });
+
+        // --- BASE DE DATOS INMENSA Y EQUILIBRADA ---
+        const TABU_DB = {
+            'Cultura y Costumbres': [ 
+                { word: 'Mate', forbidden: ['Yerba', 'Bombilla', 'Termo', 'Agua', 'Amargo'] },
+                { word: 'Asado', forbidden: ['Carne', 'Parrilla', 'Domingo', 'Fuego', 'Carbón'] },
+                { word: 'Dulce de Leche', forbidden: ['Postre', 'Untar', 'Alfajor', 'Marrón', 'Azúcar'] },
+                { word: 'Colectivo', forbidden: ['Pasaje', 'Chofer', 'Parada', 'Viajar', 'Micro'] },
+                { word: 'Kiosco', forbidden: ['Comprar', 'Golosinas', 'Alfajor', 'Negocio', 'Caramelos'] },
+                { word: 'Empanada', forbidden: ['Carne', 'Horno', 'Repulgue', 'Comida', 'Frita'] },
+                { word: 'Obelisco', forbidden: ['Monumento', 'Centro', 'Alto', 'Buenos Aires', 'Avenida'] },
+                { word: 'Truco', forbidden: ['Cartas', 'Juego', 'Envido', 'Mentir', 'Falta'] },
+                { word: 'Tango', forbidden: ['Baile', 'Música', 'Pareja', 'Gardel', 'Bandoneón'] },
+                { word: 'Facturas', forbidden: ['Panadería', 'Medialunas', 'Mate', 'Domingo', 'Docena'] },
+                { word: 'Choripán', forbidden: ['Asado', 'Pan', 'Chimichurri', 'Cancha', 'Chorizo'] },
+                { word: 'Subte', forbidden: ['Tren', 'Abajo', 'Viajar', 'Estación', 'Línea'] },
+                { word: 'Cancha', forbidden: ['Fútbol', 'Estadio', 'Partido', 'Hinchada', 'Pasto'] },
+                { word: 'Milanesa', forbidden: ['Carne', 'Pan rallado', 'Frita', 'Papas', 'Comida'] },
+                { word: 'Alfajor', forbidden: ['Dulce de leche', 'Chocolate', 'Comer', 'Kiosco', 'Tapas'] }
+            ],
+            'Comida y Bebida': [
+                { word: 'Pizza', forbidden: ['Queso', 'Tomate', 'Masa', 'Horno', 'Porción'] },
+                { word: 'Hamburguesa', forbidden: ['Carne', 'Pan', 'Papas fritas', 'Comida rápida', 'Queso'] },
+                { word: 'Helado', forbidden: ['Frío', 'Postre', 'Cucurucho', 'Verano', 'Sabor'] },
+                { word: 'Café', forbidden: ['Desayuno', 'Taza', 'Negro', 'Leche', 'Mañana'] },
+                { word: 'Cerveza', forbidden: ['Alcohol', 'Tomar', 'Lata', 'Botella', 'Espuma'] },
+                { word: 'Vino', forbidden: ['Uva', 'Copa', 'Rojo', 'Blanco', 'Tomar'] },
+                { word: 'Ensalada', forbidden: ['Lechuga', 'Tomate', 'Verde', 'Sano', 'Comida'] },
+                { word: 'Sopa', forbidden: ['Caliente', 'Plato', 'Cuchara', 'Invierno', 'Líquido'] },
+                { word: 'Sushi', forbidden: ['Pescado', 'Arroz', 'Crudo', 'Japón', 'Palitos'] },
+                { word: 'Torta', forbidden: ['Cumpleaños', 'Velas', 'Dulce', 'Cortar', 'Chocolate'] },
+                { word: 'Queso', forbidden: ['Leche', 'Vaca', 'Comida', 'Amarillo', 'Rallar'] },
+                { word: 'Pan', forbidden: ['Harina', 'Horno', 'Miga', 'Comer', 'Panadería'] },
+                { word: 'Agua', forbidden: ['Tomar', 'Sed', 'Vaso', 'Líquido', 'Transparente'] },
+                { word: 'Chocolate', forbidden: ['Cacao', 'Dulce', 'Marrón', 'Kiosco', 'Barra'] },
+                { word: 'Fideos', forbidden: ['Pasta', 'Salsa', 'Agua', 'Hervir', 'Comida'] }
+            ],
+            'Hogar y Vida Diaria': [
+                { word: 'Lavarropas', forbidden: ['Ropa', 'Agua', 'Limpiar', 'Jabón', 'Girar'] },
+                { word: 'Cama', forbidden: ['Dormir', 'Colchón', 'Sábanas', 'Almohada', 'Noche'] },
+                { word: 'Heladera', forbidden: ['Frío', 'Comida', 'Hielo', 'Cocina', 'Guardar'] },
+                { word: 'Televisor', forbidden: ['Pantalla', 'Ver', 'Control', 'Canal', 'Películas'] },
+                { word: 'Espejo', forbidden: ['Reflejo', 'Mirarse', 'Vidrio', 'Cara', 'Baño'] },
+                { word: 'Plancha', forbidden: ['Ropa', 'Calor', 'Arrugas', 'Quemar', 'Tabla'] },
+                { word: 'Escoba', forbidden: ['Barrer', 'Basura', 'Piso', 'Limpiar', 'Pala'] },
+                { word: 'Silla', forbidden: ['Sentarse', 'Mesa', 'Mueble', 'Patas', 'Madera'] },
+                { word: 'Microondas', forbidden: ['Calentar', 'Comida', 'Rápido', 'Cocina', 'Minutos'] },
+                { word: 'Alarma', forbidden: ['Despertar', 'Dormir', 'Mañana', 'Celular', 'Sonar'] },
+                { word: 'Ducha', forbidden: ['Bañarse', 'Agua', 'Jabón', 'Baño', 'Lavar'] },
+                { word: 'Ventana', forbidden: ['Vidrio', 'Mirar', 'Abrir', 'Aire', 'Cortina'] },
+                { word: 'Llaves', forbidden: ['Puerta', 'Abrir', 'Cerrar', 'Perder', 'Cerradura'] },
+                { word: 'Mascota', forbidden: ['Perro', 'Gato', 'Animal', 'Tener', 'Casa'] },
+                { word: 'Alquiler', forbidden: ['Pagar', 'Departamento', 'Mes', 'Dueño', 'Plata'] }
+            ],
+            'Entretenimiento': [
+                { word: 'Película', forbidden: ['Cine', 'Ver', 'Actor', 'Pantalla', 'Popcorn'] },
+                { word: 'Libro', forbidden: ['Leer', 'Páginas', 'Papel', 'Historia', 'Biblioteca'] },
+                { word: 'Música', forbidden: ['Escuchar', 'Canción', 'Cantar', 'Banda', 'Radio'] },
+                { word: 'Videojuego', forbidden: ['Consola', 'Jugar', 'Pantalla', 'Control', 'PlayStation'] },
+                { word: 'Boliche', forbidden: ['Bailar', 'Noche', 'Música', 'Amigos', 'Salir'] },
+                { word: 'Fiesta', forbidden: ['Música', 'Bailar', 'Cumpleaños', 'Amigos', 'Celebrar'] },
+                { word: 'Karaoke', forbidden: ['Cantar', 'Micrófono', 'Canción', 'Pantalla', 'Voz'] },
+                { word: 'Gimnasio', forbidden: ['Pesas', 'Entrenar', 'Músculos', 'Máquinas', 'Hacer'] },
+                { word: 'Teatro', forbidden: ['Actores', 'Escenario', 'Obra', 'Público', 'Telón'] },
+                { word: 'Netflix', forbidden: ['Series', 'Películas', 'Ver', 'Cuenta', 'Plataforma'] },
+                { word: 'Concierto', forbidden: ['Música', 'Banda', 'En vivo', 'Cantar', 'Entrada'] },
+                { word: 'Juego de mesa', forbidden: ['Dados', 'Tablero', 'Cartas', 'Amigos', 'Jugar'] },
+                { word: 'Fotografía', forbidden: ['Cámara', 'Sacar', 'Imagen', 'Celular', 'Flash'] },
+                { word: 'Dibujar', forbidden: ['Lápiz', 'Papel', 'Colores', 'Arte', 'Pintar'] },
+                { word: 'Radio', forbidden: ['Escuchar', 'Música', 'Locutor', 'Auto', 'Sintonizar'] }
+            ],
+            'Profesiones y Oficios': [
+                { word: 'Médico', forbidden: ['Hospital', 'Enfermo', 'Curar', 'Salud', 'Doctor'] },
+                { word: 'Bombero', forbidden: ['Fuego', 'Apagar', 'Agua', 'Camión', 'Manguera'] },
+                { word: 'Policía', forbidden: ['Ladrón', 'Pistola', 'Preso', 'Patrullero', 'Uniforme'] },
+                { word: 'Profesor', forbidden: ['Escuela', 'Enseñar', 'Alumnos', 'Clase', 'Pizarrón'] },
+                { word: 'Peluquero', forbidden: ['Pelo', 'Cortar', 'Tijeras', 'Peinar', 'Cabeza'] },
+                { word: 'Carpintero', forbidden: ['Madera', 'Martillo', 'Muebles', 'Clavos', 'Sierra'] },
+                { word: 'Mecánico', forbidden: ['Auto', 'Arreglar', 'Taller', 'Motor', 'Herramientas'] },
+                { word: 'Cocinero', forbidden: ['Comida', 'Restaurante', 'Preparar', 'Chef', 'Ollas'] },
+                { word: 'Dentista', forbidden: ['Dientes', 'Boca', 'Dolor', 'Muelas', 'Sacar'] },
+                { word: 'Abogado', forbidden: ['Juicio', 'Leyes', 'Defender', 'Juez', 'Tribunal'] },
+                { word: 'Actor', forbidden: ['Película', 'Teatro', 'Actuar', 'Famoso', 'Personaje'] },
+                { word: 'Carnicero', forbidden: ['Carne', 'Cortar', 'Vender', 'Cuchillo', 'Vaca'] },
+                { word: 'Electricista', forbidden: ['Luz', 'Cables', 'Arreglar', 'Corriente', 'Enchufe'] },
+                { word: 'Periodista', forbidden: ['Noticias', 'Tele', 'Diario', 'Informar', 'Micrófono'] },
+                { word: 'Piloto', forbidden: ['Avión', 'Volar', 'Aire', 'Manejar', 'Cielo'] }
+            ],
+            'Geografía y Naturaleza': [
+                { word: 'Árbol', forbidden: ['Hojas', 'Ramas', 'Verde', 'Madera', 'Planta'] },
+                { word: 'Lluvia', forbidden: ['Agua', 'Caer', 'Cielo', 'Paraguas', 'Mojarse'] },
+                { word: 'Montaña', forbidden: ['Nieve', 'Subir', 'Alto', 'Piedra', 'Paisaje'] },
+                { word: 'Sol', forbidden: ['Calor', 'Día', 'Amarillo', 'Estrella', 'Cielo'] },
+                { word: 'Mar', forbidden: ['Agua', 'Olas', 'Playa', 'Sal', 'Océano'] },
+                { word: 'Luna', forbidden: ['Noche', 'Blanca', 'Cielo', 'Estrellas', 'Lobo'] },
+                { word: 'Río', forbidden: ['Agua', 'Corriente', 'Pescar', 'Dulce', 'Desembocar'] },
+                { word: 'Viento', forbidden: ['Aire', 'Soplar', 'Fuerte', 'Volar', 'Frío'] },
+                { word: 'Desierto', forbidden: ['Arena', 'Calor', 'Agua', 'Camello', 'Seco'] },
+                { word: 'Bosque', forbidden: ['Árboles', 'Naturaleza', 'Verde', 'Caminar', 'Animales'] },
+                { word: 'Flor', forbidden: ['Planta', 'Pétalos', 'Olor', 'Primavera', 'Rosa'] },
+                { word: 'Nieve', forbidden: ['Frío', 'Blanco', 'Invierno', 'Hielo', 'Montaña'] },
+                { word: 'Fuego', forbidden: ['Calor', 'Quemar', 'Llama', 'Rojo', 'Incendio'] },
+                { word: 'Nubes', forbidden: ['Cielo', 'Blanco', 'Lluvia', 'Algodón', 'Arriba'] },
+                { word: 'Isla', forbidden: ['Agua', 'Tierra', 'Rodeada', 'Mar', 'Perdido'] }
+            ],
+            'Objetos y Herramientas': [
+                { word: 'Tijera', forbidden: ['Cortar', 'Papel', 'Pelo', 'Filo', 'Herramienta'] },
+                { word: 'Martillo', forbidden: ['Clavo', 'Golpear', 'Madera', 'Herramienta', 'Carpintero'] },
+                { word: 'Reloj', forbidden: ['Hora', 'Tiempo', 'Minutos', 'Muñeca', 'Pared'] },
+                { word: 'Lentes', forbidden: ['Ojos', 'Ver', 'Sol', 'Usar', 'Aumento'] },
+                { word: 'Paraguas', forbidden: ['Lluvia', 'Agua', 'Mojarse', 'Abrir', 'Tapar'] },
+                { word: 'Mochila', forbidden: ['Espalda', 'Llevar', 'Escuela', 'Cosas', 'Guardar'] },
+                { word: 'Celular', forbidden: ['Llamar', 'Mensaje', 'Pantalla', 'Teléfono', 'App'] },
+                { word: 'Billetera', forbidden: ['Plata', 'Guardar', 'Tarjetas', 'Bolsillo', 'Comprar'] },
+                { word: 'Tenedor', forbidden: ['Comer', 'Pinchar', 'Mesa', 'Cuchillo', 'Comida'] },
+                { word: 'Cuchillo', forbidden: ['Cortar', 'Carne', 'Filo', 'Tenedor', 'Comer'] },
+                { word: 'Cepillo de dientes', forbidden: ['Lavar', 'Boca', 'Pasta', 'Dentista', 'Mañana'] },
+                { word: 'Vaso', forbidden: ['Tomar', 'Agua', 'Vidrio', 'Líquido', 'Mesa'] },
+                { word: 'Libreta', forbidden: ['Escribir', 'Papel', 'Anotar', 'Hojas', 'Lápiz'] },
+                { word: 'Computadora', forbidden: ['Teclado', 'Pantalla', 'Trabajar', 'Internet', 'Mouse'] },
+                { word: 'Toalla', forbidden: ['Secar', 'Baño', 'Agua', 'Cuerpo', 'Ducha'] }
+            ],
+            'Viajes y Transporte': [
+                { word: 'Avión', forbidden: ['Volar', 'Aeropuerto', 'Cielo', 'Pasajeros', 'Piloto'] },
+                { word: 'Auto', forbidden: ['Manejar', 'Ruedas', 'Calle', 'Motor', 'Viajar'] },
+                { word: 'Tren', forbidden: ['Vías', 'Estación', 'Vagón', 'Viajar', 'Locomotora'] },
+                { word: 'Bicicleta', forbidden: ['Pedalear', 'Ruedas', 'Andar', 'Casco', 'Transporte'] },
+                { word: 'Pasaporte', forbidden: ['Viajar', 'País', 'Documento', 'Sello', 'Aeropuerto'] },
+                { word: 'Valija', forbidden: ['Ropa', 'Viaje', 'Armar', 'Llevar', 'Ruedas'] },
+                { word: 'Hotel', forbidden: ['Dormir', 'Habitación', 'Vacaciones', 'Cama', 'Pagar'] },
+                { word: 'Mapa', forbidden: ['Perdido', 'Lugar', 'Papel', 'GPS', 'Buscar'] },
+                { word: 'Moto', forbidden: ['Dos ruedas', 'Manejar', 'Casco', 'Motor', 'Rápido'] },
+                { word: 'Barco', forbidden: ['Agua', 'Navegar', 'Mar', 'Río', 'Crucero'] },
+                { word: 'Peaje', forbidden: ['Auto', 'Pagar', 'Ruta', 'Barrera', 'Viaje'] },
+                { word: 'Pasaje', forbidden: ['Comprar', 'Boleto', 'Avión', 'Micro', 'Viajar'] },
+                { word: 'Turista', forbidden: ['Viajar', 'Fotos', 'Conocer', 'Extranjero', 'Guía'] },
+                { word: 'Ruta', forbidden: ['Auto', 'Viajar', 'Camino', 'Manejar', 'Asfalto'] },
+                { word: 'Aduana', forbidden: ['País', 'Revisar', 'Valija', 'Aeropuerto', 'Frontera'] }
+            ]
+        };
+
+        let tabuState = { teams: 2, time: 60, categories: Object.keys(TABU_DB), scores: [], teamIndex: 0, deck: [], timer: null };
+
+        window.adjustSetting = function(id, delta, min, max) {
+            const el = document.getElementById(id+'-value');
+            let val = parseInt(el.textContent) + delta;
+            if(val >= min && val <= max) { 
+                el.textContent = val; 
+                playSound('uiClick', 'C5'); 
+                tabuState[id] = val;
+                el.style.transform = 'scale(1.2)';
+                setTimeout(() => el.style.transform = 'scale(1)', 150);
+            }
+        };
+
+        window.tabuPopulateCategories = function() {
+            const list = document.getElementById('tabu-categories-list'); list.innerHTML = '';
+            Object.keys(TABU_DB).forEach(cat => {
+                const isSel = tabuState.categories.includes(cat);
+                list.innerHTML += `<button onclick="toggleTabuCat(this, '${cat}')" class="btn-cinematic !m-0 !text-sm transition-colors duration-300 ${isSel?'!bg-[var(--color-accent-red)] !text-white !border-[var(--color-accent-red)]':''}">${cat}</button>`;
+            });
+        };
+        window.toggleTabuCat = function(btn, cat) {
+            playSound('uiClick','E5');
+            if(tabuState.categories.includes(cat)) { 
+                tabuState.categories = tabuState.categories.filter(c=>c!==cat); 
+                btn.classList.remove('!bg-[var(--color-accent-red)]', '!text-white', '!border-[var(--color-accent-red)]'); 
+            } else { 
+                tabuState.categories.push(cat); 
+                btn.classList.add('!bg-[var(--color-accent-red)]', '!text-white', '!border-[var(--color-accent-red)]'); 
+            }
+        };
+
+        window.tabuInitGame = function() { tabuState.scores = []; tabuState.teamIndex = 0; };
+        
+        window.tabuStartGame = function() {
+            if(tabuState.categories.length===0) return;
+            if(tabuState.scores.length===0) tabuState.scores = new Array(tabuState.teams).fill(0);
+            tabuPrepareRound();
+        };
+
+        function tabuPrepareRound() {
+            document.getElementById('team-turn-name-display').textContent = `Equipo ${tabuState.teamIndex + 1}`;
+            switchScreen('tabu-round-start-screen');
+            setTimeout(() => { document.getElementById('tabu-dossier-cover').classList.add('open'); playSound('cardFlip'); }, 600);
+            setTimeout(() => {
+                document.getElementById('tabu-dossier-cover').classList.remove('open');
+                startTabuGameLogic();
+            }, 3500);
+        }
+
+        function startTabuGameLogic() {
+            tabuState.deck = [];
+            tabuState.categories.forEach(c => tabuState.deck.push(...TABU_DB[c]));
+            tabuState.deck.sort(()=>Math.random()-0.5);
+            
+            document.getElementById('team-1-score').textContent = tabuState.scores[0];
+            document.getElementById('team-2-score').textContent = tabuState.scores[1] || 0;
+            switchScreen('tabu-game-screen');
+            drawTabuCard();
+            
+            let timeLeft = tabuState.time;
+            const timerEl = document.getElementById('tabu-timer'); 
+            timerEl.textContent = timeLeft; timerEl.style.color = 'white'; timerEl.style.textShadow = 'none';
+            
+            tabuState.timer = setInterval(() => {
+                timeLeft--; timerEl.textContent = timeLeft;
+                if(timeLeft <= 10) { 
+                    timerEl.style.color = 'var(--color-accent-red)'; 
+                    timerEl.style.textShadow = '0 0 15px rgba(199,0,57,0.8)';
+                    vibrate(50); 
+                    timerEl.style.transform = 'scale(1.1)';
+                    setTimeout(() => timerEl.style.transform = 'scale(1)', 200);
+                }
+                if(timeLeft <= 0) tabuEndRound("¡Tiempo Agotado!");
+            }, 1000);
+        }
+
+        function drawTabuCard() {
+            if(tabuState.deck.length === 0) return tabuEndRound("Sin palabras");
+            const card = tabuState.deck.pop();
+            document.getElementById('main-word').textContent = card.word;
+            document.getElementById('forbidden-list').innerHTML = card.forbidden.map(w => `<li>${w}</li>`).join('');
+            const el = document.getElementById('taboo-card');
+            el.classList.remove('flip-in', 'flip-out'); void el.offsetWidth; el.classList.add('flip-in');
+        }
+
+        window.tabuProcessAnswer = function(success) {
+            const el = document.getElementById('taboo-card');
+            if(el.classList.contains('flip-out')) return;
+            if(success) { tabuState.scores[tabuState.teamIndex]++; playSound('successStinger', 'C5'); vibrate(50); } else { playSound('uiClick', 'C3'); vibrate(100); }
+            
+            const scoreEl = document.getElementById(`team-${tabuState.teamIndex+1}-score`);
+            scoreEl.textContent = tabuState.scores[tabuState.teamIndex];
+            scoreEl.style.transform = 'scale(1.5)';
+            setTimeout(() => scoreEl.style.transform = 'scale(1)', 300);
+
+            el.classList.add('flip-out');
+            setTimeout(drawTabuCard, 400);
+        };
+
+        function tabuEndRound(reason) {
+            clearInterval(tabuState.timer); vibrate([200, 50, 200]);
+            
+            const flash = document.getElementById('flash-overlay'); flash.classList.add('flash-active');
+            flash.onanimationend = () => flash.classList.remove('flash-active');
+            setTimeout(() => { playSound('uiClick', 'C2'); document.getElementById('round-end-stamp-overlay').classList.add('stamp-visible'); }, 150);
+
+            setTimeout(() => {
+                document.getElementById('round-end-stamp-overlay').classList.remove('stamp-visible');
+                document.getElementById('tabu-round-summary').textContent = `${reason}. Fin del turno Equipo ${tabuState.teamIndex+1}.`;
+                const list = document.getElementById('tabu-results-list'); list.innerHTML = '';
+                for(let i=0; i<tabuState.teams; i++) {
+                    list.innerHTML += `<li class="flex justify-between py-2 border-b border-gray-700 last:border-0"><span class="uppercase">Equipo ${i+1}</span><span class="font-['Anton'] text-2xl text-[var(--color-primary-yellow)] drop-shadow-md">${tabuState.scores[i]} pts</span></li>`;
+                }
+                showModal('tabu-end-round-modal');
+                tabuState.teamIndex = (tabuState.teamIndex + 1) % tabuState.teams;
+            }, 3000);
+        }
+
+        window.tabuNextRound = function() { hideModal('tabu-end-round-modal'); tabuPrepareRound(); };
+        window.tabuExitToHub = function() { hideModal('tabu-end-round-modal'); switchScreen('hub-screen'); };
+
+        let refState = { players: [], queue: [], results: {}, penalties: {}, targetId: null, startTime: 0, timer: null, currentState: 'idle' };
+
+        window.refUpdateUI = function() {
+            const list = document.getElementById('ref-list'); list.innerHTML = '';
+            refState.players.forEach(p => {
+                list.innerHTML += `<div class="flex justify-between items-center bg-[#fff] border-2 border-[#111] p-1 px-3 rounded shadow-[0_2px_0_#000] mb-1"><span class="font-bold uppercase">${p.name}</span><button onclick="refRemovePlayer(${p.id})" class="text-[var(--color-accent-red)] font-['Anton'] text-2xl leading-none hover:scale-110 transition-transform">X</button></div>`;
+            });
+            document.getElementById('ref-btn-start').disabled = refState.players.length < 2;
+        };
+        
+        window.refAddPlayer = function() {
+            const val = document.getElementById('ref-input').value.trim();
+            if(val && val.length < 15 && !refState.players.find(p=>p.name===val)){ refState.players.push({id:Date.now(), name:val}); document.getElementById('ref-input').value=''; playSound('uiClick','D5'); refUpdateUI(); }
+        };
+        window.refRemovePlayer = function(id) { refState.players = refState.players.filter(p=>p.id!==id); playSound('uiClick','A3'); refUpdateUI(); };
+
+        window.refStartGame = function() {
+            const rounds = parseInt(document.getElementById('ref-rounds').value);
+            refState.results = {}; refState.penalties = {}; refState.queue = [];
+            refState.players.forEach(p => { 
+                refState.results[p.id] = []; 
+                refState.penalties[p.id] = 0;
+                for(let i=0;i<rounds;i++) refState.queue.push(p.id); 
+            });
+            refState.queue.sort(()=>Math.random()-0.5);
+            switchScreen('reflejos-play-screen');
+            refNextTurn();
+        };
+
+        function refNextTurn(retry = false) {
+            if(!retry && refState.queue.length === 0) return showRefResults();
+            if(!retry) { refState.targetId = refState.queue.shift(); }
+
+            refState.currentState = 'wait';
+            
+            const playScreen = document.getElementById('reflejos-play-screen');
+            playScreen.style.backgroundColor = '#111';
+            
+            document.getElementById('ref-wait-ui').classList.remove('hidden');
+            document.getElementById('ref-action-ui').classList.add('hidden');
+            document.getElementById('ref-result-ui').classList.add('hidden');
+            
+            clearTimeout(refState.timer);
+            refState.timer = setTimeout(() => {
+                refState.currentState = 'action';
+                
+                playScreen.style.backgroundColor = 'var(--color-accent-red)';
+                
+                document.getElementById('ref-wait-ui').classList.add('hidden');
+                document.getElementById('ref-action-ui').classList.remove('hidden');
+
+                const pName = refState.players.find(p=>p.id===refState.targetId).name;
+                document.getElementById('ref-target-name').textContent = pName;
+                document.getElementById('ref-result-name').textContent = pName; 
+                
+                playSound('successStinger', ['C4','E4']);
+                refState.startTime = performance.now();
+            }, Math.random()*3000 + 1500);
+        }
+
+        window.refHandleTouch = function(e) {
+            if(e.target.closest('.btn-back-global')) return;
+            
+            if(refState.currentState === 'wait') {
+                clearTimeout(refState.timer);
+                refState.currentState = 'penalty';
+                playSound('uiClick', 'G2'); vibrate(100);
+                
+                const playScreen = document.getElementById('reflejos-play-screen');
+                playScreen.style.backgroundColor = '#330000';
+                setTimeout(() => playScreen.style.backgroundColor = '#111', 150);
+
+                showPenaltyModal();
+            } else if(refState.currentState === 'action') {
+                refState.currentState = 'result';
+                let time = Math.round(performance.now() - refState.startTime);
+                refState.results[refState.targetId].push(time);
+                playSound('ding', 'C5'); vibrate(30);
+                
+                const playScreen = document.getElementById('reflejos-play-screen');
+                playScreen.style.backgroundColor = '#1a1a1a';
+                
+                document.getElementById('ref-action-ui').classList.add('hidden');
+                document.getElementById('ref-result-ui').classList.remove('hidden');
+                
+                let currentDisplay = 0;
+                const timeDisplay = document.getElementById('ref-time-display');
+                const interval = setInterval(() => {
+                    currentDisplay += Math.max(1, Math.floor(time / 10));
+                    if(currentDisplay >= time) {
+                        currentDisplay = time;
+                        clearInterval(interval);
+                        timeDisplay.style.transform = 'scale(1.2)';
+                        setTimeout(() => timeDisplay.style.transform = 'scale(1)', 200);
+                    }
+                    timeDisplay.textContent = `${currentDisplay}ms`;
+                }, 20);
+                
+                setTimeout(() => refNextTurn(false), 2500); 
+            }
+        };
+
+        function showPenaltyModal() {
+            const list = document.getElementById('ref-penalty-list'); list.innerHTML = '';
+            refState.players.forEach(p => {
+                list.innerHTML += `<button onclick="refApplyPenalty(${p.id})" class="btn-cinematic w-full penalty-btn" disabled>${p.name}</button>`;
+            });
+            showModal('ref-penalty-modal');
+            
+            setTimeout(() => {
+                document.querySelectorAll('.penalty-btn').forEach(btn => btn.disabled = false);
+            }, 1000);
+        }
+
+        window.refApplyPenalty = function(id) {
+            refState.penalties[id] = (refState.penalties[id] || 0) + 500;
+            hideModal('ref-penalty-modal');
+            setTimeout(() => refNextTurn(true), 400); 
+        };
+
+        window.refCancelPenalty = function() {
+            hideModal('ref-penalty-modal');
+            setTimeout(() => refNextTurn(true), 400); 
+        };
+
+        function showRefResults() {
+            switchScreen('reflejos-results-screen');
+            const data = refState.players.map(p => { 
+                const times = refState.results[p.id] || [];
+                const avg = times.length ? Math.round(times.reduce((a,b)=>a+b,0)/times.length) : 0;
+                const penalty = refState.penalties[p.id] || 0;
+                const finalScore = avg + penalty;
+                return {name:p.name, finalScore, penalty}; 
+            }).sort((a,b)=>a.finalScore - b.finalScore);
+            
+            document.getElementById('ref-ranking-table').innerHTML = data.map((d,i) => `
+                <tr class="border-b border-dashed border-[#555] last:border-0">
+                    <td class="py-3 text-[var(--color-accent-red)] font-bold text-xl">#${i+1}</td>
+                    <td class="py-3 uppercase text-lg font-bold">${d.name}</td>
+                    <td class="py-3 text-right">
+                        <span class="font-['Anton'] text-2xl">${d.finalScore}ms</span>
+                        ${d.penalty > 0 ? `<br><span class="text-xs text-[var(--color-accent-red)] font-bold uppercase tracking-widest bg-[rgba(199,0,57,0.1)] px-1 rounded-sm border border-[var(--color-accent-red)]">+${d.penalty}ms Infracción</span>` : ''}
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // --- BASE DE DATOS TELEPATÍA ---
+        const waveDb = [ 
+            ["Frío", "Calor"], ["Útil", "Inútil"], ["Lento", "Rápido"], ["Liviano", "Pesado"], 
+            ["Barato", "Caro"], ["Fácil", "Difícil"], ["Feo", "Lindo"], ["Aburrido", "Divertido"],
+            ["Dulce", "Salado"], ["Suave", "Áspero"], ["Seguro", "Peligroso"], ["Silencioso", "Ruidoso"],
+            ["Infantil", "Maduro"], ["Clásico", "Moderno"], ["Común", "Raro"], ["Seco", "Mojado"],
+            ["Oscuro", "Luminoso"], ["Blando", "Duro"], ["Corto", "Largo"], ["Limpio", "Sucio"],
+            ["Triste", "Feliz"], ["Amargo", "Dulce"], ["Olor Rico", "Olor Feo"], ["Comida Chatarra", "Comida Sana"], 
+            ["Para la mañana", "Para la noche"], ["Invierno", "Verano"], ["Música para relajar", "Música para bailar"], 
+            ["Trabajo", "Placer"], ["Talento Natural", "Mucha Práctica"], ["Ciencia", "Magia"], 
+            ["Para niños", "Para adultos"], ["Héroe", "Villano"], ["Mito", "Realidad"], 
+            ["Compra Innecesaria", "Inversión Inteligente"], ["Aburrido para ver", "Divertido para ver"], 
+            ["Plan de viernes", "Plan de domingo"], ["Buen tema", "Tema para dormir"], 
+            ["Cosas de pareja", "Motivo de separación"], ["Gasto inteligente", "Tirar la plata"], 
+            ["Súper Común", "Rarísimo"], ["Cosa de todos los días", "Una vez al año"], 
+            ["Fácil de hacer", "Difícil de hacer"], ["Para comer solo", "Para compartir"], 
+            ["Película para llorar", "Película para reír"], ["Cosa de ciudad", "Cosa de campo"]
+        ];
+        let waveTargetVal = 50;
+        
+        window.waveStartRound = function() {
+            switchScreen('wave-play-screen');
+            document.getElementById('wave-slider').disabled = true; document.getElementById('wave-slider').value = 50;
+            document.getElementById('wave-target').style.opacity = '0';
+            document.getElementById('wave-btn-peek').classList.remove('hidden'); document.getElementById('wave-btn-guess').classList.remove('hidden');
+            document.getElementById('wave-btn-reveal').classList.add('hidden'); document.getElementById('wave-score-container').classList.add('hidden');
+            document.getElementById('wave-badge').textContent = "FASE: EMISOR";
+            document.getElementById('wave-badge').style.backgroundColor = '#000';
+            document.getElementById('wave-badge').style.color = 'var(--color-primary-yellow)';
+            
+            const pair = waveDb[Math.floor(Math.random()*waveDb.length)];
+            document.getElementById('wave-left').textContent = pair[0]; document.getElementById('wave-right').textContent = pair[1];
+            waveTargetVal = Math.floor(Math.random()*50) + 25; document.getElementById('wave-target').style.left = waveTargetVal + '%';
+        };
+
+        const btnPeek = document.getElementById('wave-btn-peek');
+        const showTarget = (e) => { e.preventDefault(); document.getElementById('wave-target').style.opacity = '1'; document.getElementById('wave-slider').classList.add('hide-thumb'); playSound('uiClick','E4'); };
+        const hideTarget = (e) => { e.preventDefault(); document.getElementById('wave-target').style.opacity = '0'; document.getElementById('wave-slider').classList.remove('hide-thumb'); };
+        btnPeek.addEventListener('mousedown', showTarget); btnPeek.addEventListener('mouseup', hideTarget); btnPeek.addEventListener('mouseleave', hideTarget);
+        btnPeek.addEventListener('touchstart', showTarget, {passive:false}); btnPeek.addEventListener('touchend', hideTarget);
+
+        window.waveEnableGuessing = function() {
+            btnPeek.classList.add('hidden'); document.getElementById('wave-btn-guess').classList.add('hidden');
+            document.getElementById('wave-btn-reveal').classList.remove('hidden');
+            document.getElementById('wave-slider').disabled = false;
+            document.getElementById('wave-slider').classList.remove('hide-thumb'); 
+            document.getElementById('wave-badge').textContent = "FASE: RECEPTOR";
+            document.getElementById('wave-badge').style.backgroundColor = 'var(--color-accent-red)';
+            document.getElementById('wave-badge').style.color = '#fff';
+        };
+
+        window.waveReveal = function() {
+            document.getElementById('wave-slider').disabled = true; document.getElementById('wave-btn-reveal').classList.add('hidden');
+            document.getElementById('wave-score-container').classList.remove('hidden');
+            document.getElementById('wave-target').style.opacity = '1'; playSound('successStinger', ['C4','G4']);
+            const diff = Math.abs(waveTargetVal - parseInt(document.getElementById('wave-slider').value));
+            
+            const scoreEl = document.getElementById('wave-score');
+            let finalScore = Math.max(0, 100 - (diff * 4));
+            let currScore = 0;
+            const iv = setInterval(()=>{
+                currScore += 2;
+                if(currScore >= finalScore) { currScore = finalScore; clearInterval(iv); scoreEl.style.transform = 'scale(1.2)'; setTimeout(()=>scoreEl.style.transform='scale(1)', 200);}
+                scoreEl.textContent = currScore + "%";
+            }, 10);
+        };
+
+        const alpha = "ABCDEFGHIJKLMNOPQRSTUVZ".split(""); let availLetters = [...alpha]; let usedLetters = []; let isSpinning = false;
+
+        window.bastaUpdateUI = function() {
+            document.getElementById('basta-count').textContent = usedLetters.length;
+            document.getElementById('basta-history').innerHTML = usedLetters.map(l => `<span class="bg-[#111] text-[var(--color-primary-yellow)] px-3 py-1 rounded-sm shadow-[0_2px_0_#000] border border-[#333]">${l}</span>`).join('');
+        };
+
+        window.bastaSpin = function() {
+            if(isSpinning || availLetters.length===0) return;
+            isSpinning = true; playSound('uiClick', 'A2');
+            document.getElementById('basta-spin-btn').disabled = true;
+            document.querySelector('.vintage-roulette').classList.add('spinning');
+            
+            let ticks = 0;
+            const iv = setInterval(() => {
+                document.getElementById('basta-letter').textContent = alpha[Math.floor(Math.random()*alpha.length)]; playSound('mechanicalSpin');
+                if(++ticks > 30) { 
+                    clearInterval(iv);
+                    const l = availLetters.splice(Math.floor(Math.random()*availLetters.length), 1)[0]; usedLetters.push(l);
+                    document.querySelector('.vintage-roulette').classList.remove('spinning');
+                    const letterEl = document.getElementById('basta-letter');
+                    letterEl.textContent = l; 
+                    playSound('ding', 'E5'); vibrate(100);
+                    
+                    letterEl.style.transform = 'scale(1.5)';
+                    letterEl.style.color = 'var(--color-accent-red)';
+                    setTimeout(() => {
+                        letterEl.style.transform = 'scale(1)';
+                        letterEl.style.color = '#111';
+                    }, 300);
+
+                    setTimeout(() => { isSpinning = false; document.getElementById('basta-spin-btn').disabled = false; bastaUpdateUI(); }, 800);
+                }
+            }, 40);
+        };
+
+        window.bastaReset = function() { availLetters = [...alpha]; usedLetters = []; document.getElementById('basta-letter').textContent = "?"; bastaUpdateUI(); playSound('uiClick', 'C3'); };
+
+        function fireConfetti() {
+            const canvas = document.getElementById('confetti-canvas'); const ctx = canvas.getContext('2d');
+            canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+            let particles = []; const colors = ['#FFC300', '#C70039', '#EAEAEA', '#111111'];
+            for(let i=0; i<100; i++) particles.push({ x: canvas.width/2, y: canvas.height/2 + 100, vx: (Math.random()-0.5)*20, vy: (Math.random()-1)*20, size: Math.random()*8+5, color: colors[Math.floor(Math.random()*colors.length)], rot: Math.random()*360, rotSpeed: (Math.random()-0.5)*10 });
+            function render() {
+                ctx.clearRect(0,0,canvas.width,canvas.height);
+                particles.forEach(p => { p.x += p.vx; p.y += p.vy; p.vy += 0.3; ctx.fillStyle = p.color; ctx.fillRect(p.x, p.y, p.size, p.size); });
+                particles = particles.filter(p => p.y < canvas.height);
+                if(particles.length > 0) requestAnimationFrame(render);
+            }
+            render();
+        }
+
+        // --- BASE DE DATOS CARGA EXPLOSIVA ---
+        const bombDb = [
+            "Colores", "Cosas en un baño", "Animales salvajes", "Frutas", "Capitales del mundo", 
+            "Países de América", "Deportes", "Instrumentos musicales", "Profesiones", 
+            "Palabras que terminen en 'CIÓN'", "Cosas frías", "Superhéroes", "Marcas de ropa", 
+            "Nombres de mujer", "Nombres de hombre", "Cosas que haces en verano",
+            "Animales que viven en el agua", "Tipos de flores", "Palabras que empiecen con 'A'",
+            "Cosas que se enchufan", "Marcas de zapatillas", "Deportes con pelota", 
+            "Películas infantiles", "Cosas que tienen botones", "Cosas que llevas a la playa", 
+            "Sabores de helado", "Herramientas", "Partes del cuerpo", "Cosas que se comen con cuchara", 
+            "Cosas de color verde", "Cosas que vuelan", "Marcas de autos", "Sabores de empanadas", 
+            "Cosas que comprás en un kiosco", "Estaciones de tren o subte", "Canciones clásicas de fiesta", 
+            "Cosas que hacés cuando se corta la luz", "Materias de la escuela", "Frases típicas de madres", 
+            "Cosas que perdés seguido", "Nombres de perros", "Comidas que pedís por delivery", 
+            "Cosas que hay en una guantera", "Programas de TV clásicos", "Equipos de fútbol", 
+            "Lugares para una primera cita", "Golosinas", "Comidas de domingo", "Trabajos difíciles", 
+            "Marcas de yerba", "Nombres de actores famosos", "Verduras", "Cosas que se guardan en la heladera", 
+            "Meses del año", "Días festivos", "Cosas que hay en una plaza", "Marcas de galletitas", 
+            "Elementos de cocina", "Ropa de invierno", "Cosas que se rompen fácil", "Países de Europa", 
+            "Medios de transporte", "Animales con cuernos", "Insectos", "Juegos de mesa"
+        ];
+        
+        let bombState = { 
+            timer: null, 
+            tickTimer: null, 
+            visualLoop: null,
+            physicsLoop: null,
+            physicsActive: false,
+            totalDuration: 0,
+            endTime: 0, 
+            isExploded: false, 
+            passCount: 0 
+        };
+
+        window.bombInit = function() {
+            switchScreen('bomb-setup-screen');
+        };
+
+        window.bombStartGame = function() {
+            const prompt = bombDb[Math.floor(Math.random() * bombDb.length)];
+            document.getElementById('bomb-prompt').textContent = prompt;
+
+            // SISTEMA DE TIEMPO SESGADO (Probabilidades)
+            let duration = 0;
+            const rand = Math.random();
+            if (rand < 0.85) {
+                // 85% de probabilidad: Bomba larga (entre 20s y 65s)
+                duration = Math.floor(Math.random() * 45000) + 20000;
+            } else {
+                // 15% de probabilidad: Bomba muy corta y rápida (entre 8s y 18s)
+                duration = Math.floor(Math.random() * 10000) + 8000;
+            }
+
+            bombState.totalDuration = duration;
+            bombState.endTime = Date.now() + duration;
+            bombState.isExploded = false;
+            bombState.passCount = 0;
+            
+            document.getElementById('bomb-pass-count').textContent = "Pases: 0";
+            
+            bombState.physicsActive = false;
+            if(bombState.physicsLoop) cancelAnimationFrame(bombState.physicsLoop);
+            
+            const explodedElements = [
+                document.querySelector('#bomb-play-screen .vintage-paper-box'),
+                document.getElementById('bomb-container'),
+                document.getElementById('bomb-btn-pass').parentElement
+            ];
+            
+            explodedElements.forEach(el => {
+                if(el) {
+                    el.style.transform = '';
+                    el.style.pointerEvents = 'auto';
+                }
+            });
+
+            // Resetear estilos visuales de tensión
+            document.getElementById('bomb-tension-overlay').style.opacity = '0';
+            const container = document.getElementById('bomb-container');
+            container.classList.remove('bomb-exploded');
+            container.style.transform = '';
+            container.style.boxShadow = '';
+            
+            const icon = document.getElementById('bomb-icon');
+            icon.className = "fas fa-bomb text-7xl bomb-pulse-idle transition-colors duration-150 text-[var(--color-primary-yellow)]";
+            icon.style.textShadow = '';
+            icon.style.color = '';
+            
+            document.getElementById('bomb-btn-pass').disabled = false;
+            document.getElementById('bomb-btn-pass').classList.remove('hidden');
+
+            switchScreen('bomb-play-screen');
+            
+            clearTimeout(bombState.tickTimer);
+            clearTimeout(bombState.timer);
+            cancelAnimationFrame(bombState.visualLoop);
+            
+            bombScheduleTick();
+            bombState.visualLoop = requestAnimationFrame(bombUpdateVisualTension);
+            
+            bombState.timer = setTimeout(bombExplode, duration);
+        };
+
+        function bombUpdateVisualTension() {
+            if (bombState.isExploded) return;
+            
+            const timeLeft = bombState.endTime - Date.now();
+            if (timeLeft <= 0) return; 
+
+            // Progress va de 0.0 (inicio) a 1.0 (explosión)
+            const progress = 1 - Math.max(0, timeLeft / bombState.totalDuration);
+            
+            // Curva exponencial: la tensión visual crece mucho más rápido hacia el final
+            const tension = Math.pow(progress, 4); 
+
+            // 1. Efecto Vignette Rojo que asfixia la pantalla
+            document.getElementById('bomb-tension-overlay').style.opacity = tension * 0.85;
+
+            const container = document.getElementById('bomb-container');
+            const icon = document.getElementById('bomb-icon');
+            const wrapper = document.getElementById('bomb-content-wrapper');
+            
+            // 2. Shake y Glow progresivo a partir del 30% del tiempo transcurrido
+            if (progress > 0.3) {
+                // Shake del contenedor de la bomba
+                const shakeScale = Math.pow((progress - 0.3) / 0.7, 2); // 0 a 1
+                const maxShakePixels = 12;
+                const tx = (Math.random() - 0.5) * (shakeScale * maxShakePixels);
+                const ty = (Math.random() - 0.5) * (shakeScale * maxShakePixels);
+                const rot = (Math.random() - 0.5) * (shakeScale * 6); // Hasta 3 grados de rotación
+                
+                container.style.transform = `translate(${tx}px, ${ty}px) rotate(${rot}deg)`;
+                
+                // Resplandor diabólico
+                const innerGlow = 20 + (tension * 60);
+                const outerGlow = tension * 100;
+                container.style.boxShadow = `inset 0 0 ${innerGlow}px rgba(199,0,57,${0.5 + tension*0.5}), 8px 8px 0 rgba(0,0,0,1), 0 0 ${outerGlow}px rgba(199,0,57,${tension})`;
+                
+                // Cambio de color del ícono al final (Blanco incandescente)
+                if (progress > 0.85) {
+                    icon.style.color = '#ffffff';
+                    icon.style.textShadow = `0 0 15px #ffffff, 0 0 30px var(--color-accent-red)`;
+                } else if (progress > 0.5) {
+                    icon.style.color = 'var(--color-accent-red)';
+                    icon.style.textShadow = `0 0 ${tension*20}px var(--color-accent-red)`;
+                }
+                
+                // Shake de TODA la interfaz en el último 15% del tiempo
+                if (progress > 0.85) {
+                    const screenShake = (progress - 0.85) * 40; // 0 a ~6px
+                    const stx = (Math.random() - 0.5) * screenShake;
+                    const sty = (Math.random() - 0.5) * screenShake;
+                    wrapper.style.transform = `translate(${stx}px, ${sty}px)`;
+                } else {
+                    wrapper.style.transform = 'translate(0px, 0px)';
+                }
+                
+            } else {
+                container.style.transform = '';
+                wrapper.style.transform = '';
+            }
+
+            bombState.visualLoop = requestAnimationFrame(bombUpdateVisualTension);
+        }
+
+        function bombScheduleTick() {
+            if(bombState.isExploded) return;
+            const timeLeft = bombState.endTime - Date.now();
+            if(timeLeft <= 0) return;
+
+            const progress = 1 - Math.max(0, timeLeft / bombState.totalDuration);
+
+            // CURVA MATEMÁTICA CONTINUA PARA EL SONIDO
+            // El ritmo (tickRate) pasa de 1000ms a 80ms de forma curva exponencial.
+            let tickRate = 1000 - Math.pow(progress, 2.5) * 920; 
+            tickRate = Math.max(80, tickRate);
+
+            // Tono (Pitch Bending) perfecto. Mapeado de frecuencia (Hz) directamente. 
+            // Arranca muy grave (~65Hz) y sube agresivamente hasta muy agudo (~880Hz).
+            let pitchFreq = 65 + Math.pow(progress, 2.2) * 815;
+
+            playSound('tick', pitchFreq);
+            
+            const icon = document.getElementById('bomb-icon');
+            icon.classList.remove('bomb-pulse-idle');
+            icon.classList.add('bomb-pulse-tick');
+            
+            setTimeout(() => {
+                if(!bombState.isExploded) {
+                    icon.classList.remove('bomb-pulse-tick');
+                    icon.classList.add('bomb-pulse-idle');
+                }
+            }, tickRate * 0.4); 
+
+            bombState.tickTimer = setTimeout(bombScheduleTick, tickRate);
+        }
+
+        window.bombPass = function() {
+            if(bombState.isExploded) return;
+            bombState.passCount++;
+            document.getElementById('bomb-pass-count').textContent = `Pases: ${bombState.passCount}`;
+            
+            playSound('mechanicalSpin');
+            vibrate(30);
+            
+            const playScreen = document.getElementById('bomb-play-screen');
+            playScreen.style.backgroundColor = '#2c2c2c';
+            setTimeout(() => playScreen.style.backgroundColor = '', 100);
+        };
+
+        function bombExplode() {
+            bombState.isExploded = true;
+            clearTimeout(bombState.tickTimer);
+            cancelAnimationFrame(bombState.visualLoop);
+            
+            // Restablecer estilos forzados del shake
+            const wrapper = document.getElementById('bomb-content-wrapper');
+            wrapper.style.transform = '';
+            
+            // Desvanecer tensión roja
+            document.getElementById('bomb-tension-overlay').style.transition = 'opacity 2s';
+            document.getElementById('bomb-tension-overlay').style.opacity = '0';
+            setTimeout(() => { document.getElementById('bomb-tension-overlay').style.transition = 'opacity 0.1s'; }, 2000);
+            
+            playSound('explosion');
+            vibrate([500, 100, 500, 100, 800]);
+            
+            const flash = document.getElementById('flash-overlay');
+            flash.classList.add('flash-active');
+            flash.onanimationend = () => flash.classList.remove('flash-active');
+            
+            const icon = document.getElementById('bomb-icon');
+            icon.className = "fas fa-skull text-8xl text-[var(--color-accent-red)]";
+            icon.style.color = ''; 
+            icon.style.textShadow = '';
+            
+            // Iniciar Motor de Físicas
+            bombState.physicsActive = true;
+            const explodedElements = [
+                document.querySelector('#bomb-play-screen .vintage-paper-box'),
+                document.getElementById('bomb-container'),
+                document.getElementById('bomb-btn-pass').parentElement
+            ];
+            
+            let physicsObjects = [];
+            explodedElements.forEach(el => {
+                if(!el) return;
+                const rect = el.getBoundingClientRect();
+                const centerX = window.innerWidth / 2;
+                const centerY = window.innerHeight / 2;
+                const elCenterX = rect.left + rect.width / 2;
+                const elCenterY = rect.top + rect.height / 2;
+                
+                // Vector de dirección desde el centro
+                let dirX = elCenterX - centerX;
+                let dirY = elCenterY - centerY;
+                
+                // Si el elemento está en el medio exacto, lo forzamos a una dirección lateral aleatoria
+                if(Math.abs(dirX) < 10) dirX = (Math.random() - 0.5) * 50;
+                if(Math.abs(dirY) < 10) dirY = (Math.random() - 0.5) * 50;
+
+                let dist = Math.sqrt(dirX*dirX + dirY*dirY) || 1;
+                let force = (Math.random() * 20) + 25; // Fuerza de empuje
+                
+                el.style.pointerEvents = 'none';
+
+                physicsObjects.push({
+                    el: el,
+                    vx: (dirX / dist) * force + (Math.random() - 0.5) * 20, 
+                    vy: (dirY / dist) * force - (Math.random() * 30 + 20),  
+                    rv: (Math.random() - 0.5) * 40, // Velocidad de rotación
+                    x: 0,
+                    y: 0,
+                    rot: 0
+                });
+            });
+
+            function updatePhysics() {
+                if (!bombState.physicsActive) return;
+                physicsObjects.forEach(obj => {
+                    obj.vy += 1.5; // Gravedad cayendo hacia abajo
+                    obj.x += obj.vx;
+                    obj.y += obj.vy;
+                    obj.rot += obj.rv;
+                    obj.el.style.transform = `translate3d(${obj.x}px, ${obj.y}px, 0) rotate(${obj.rot}deg)`;
+                });
+                bombState.physicsLoop = requestAnimationFrame(updatePhysics);
+            }
+            updatePhysics();
+            
+            // Retrasamos unos milisegundos más la pantalla de fin, para que aprecies la caída de los pedazos
+            setTimeout(() => {
+                document.getElementById('bomb-result-pases').textContent = bombState.passCount;
+                switchScreen('bomb-result-screen');
+            }, 3000); 
+        }
+
+    </script>
+</body>
+</html>
